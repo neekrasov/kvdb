@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"flag"
 	"log"
 	"time"
@@ -26,7 +24,7 @@ func main() {
 	}
 
 	err = kvdb.CLI()
-	if err != nil && !errors.Is(err, context.Canceled) {
+	if err != nil {
 		log.Fatal(err)
 	}
 }

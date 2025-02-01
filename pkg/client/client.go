@@ -106,3 +106,7 @@ func (k *KVDBClient) CLI() error {
 		fmt.Println(conversiontypes.UnsafeBytesToString(resBytes))
 	}
 }
+
+func (k *KVDBClient) Close() error {
+	return k.client.Close()
+}
