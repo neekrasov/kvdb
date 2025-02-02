@@ -16,6 +16,7 @@ type (
 		Engine  EngineConfig  `yaml:"engine" json:"engine" xml:"engine"`
 		Network NetworkConfig `yaml:"network" json:"network" xml:"network"`
 		Logging LoggingConfig `yaml:"logging" json:"logging" xml:"logging"`
+		WAL     WALConfig     `yaml:"wal" json:"wal" xml:"wal"`
 	}
 
 	EngineConfig struct {
@@ -33,7 +34,20 @@ type (
 		Level  string `yaml:"level" json:"level" xml:"level"`
 		Output string `yaml:"output" json:"output" xml:"output"`
 	}
+
+	WALConfig struct {
+		FlushingBatchSize    int           `yaml:"flushing_batch_size" json:"flushing_batch_size" xml:"flushing_batch_size"`
+		FlushingBatchTimeout time.Duration `yaml:"flushing_batch_timeout" json:"flushing_batch_timeout" xml:"flushing_batch_timeout"`
+		MaxSegmentSize       string        `yaml:"max_segment_size" json:"max_segment_size" xml:"max_segment_size"`
+		DataDir              string        `yaml:"data_directory" json:"data_directory" xml:"data_directory"`
+	}
 )
+
+// wal:
+//   flushing_batch_size: 100
+//   flushing_batch_timeout: "10ms"
+//   max_segment_size: "10MB"
+// 	data_directory: "/data/spider/wal"
 
 func GetConfig(path string) (Config, error) {
 	configContent, err := GetConfigReader(path)

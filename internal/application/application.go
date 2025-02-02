@@ -46,6 +46,7 @@ func (a *Application) Start(ctx context.Context) error {
 	if msize := a.cfg.Network.MaxMessageSize; msize != "" {
 		size, err := sizeparser.ParseSize(msize)
 		if err != nil {
+			logger.Error("pase max message size failed", zap.Error(err))
 			return err
 		}
 

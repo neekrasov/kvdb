@@ -60,9 +60,11 @@ func (s *Server) Start(ctx context.Context, address string) error {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				logger.Error("failed to accept connection", zap.Error(err))
+				logger.Warn("failed to accept connection", zap.Error(err))
 				return
 			}
+
+			logger.Debug("accept connection", zap.Stringer("remote_addr", conn.RemoteAddr()))
 
 			s.semaphore.Acquire()
 			go func() {
@@ -102,7 +104,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		n, err := conn.Read(buffer)
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				logger.Error("connection timed out", zap.String("remote_addr", conn.RemoteAddr().String()))
+				logger.Warn("connection timed out", zap.Stringer("remote_addr", conn.RemoteAddr()))
 				return
 			}
 
@@ -130,7 +132,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		if _, err := conn.Write([]byte(response)); err != nil {
 			logger.Warn(
 				"failed to write data",
-				zap.String("address", conn.RemoteAddr().String()),
+				zap.Stringer("address", conn.RemoteAddr()),
 				zap.Error(err),
 			)
 			return

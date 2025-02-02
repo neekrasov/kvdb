@@ -22,11 +22,12 @@ func isError(val string) bool {
 func (c *Database) HandleQuery(query string) string {
 	cmd, err := c.parser.Parse(query)
 	if err != nil {
+		logger.Debug("parse query failed", zap.Error(err))
 		return wrapError(fmt.Errorf("parse input failed: %w", err))
 	}
 
 	logger.Info("parsed command",
-		zap.String("cmd_type", string(cmd.Type)),
+		zap.Stringer("cmd_type", cmd.Type),
 		zap.Strings("args", cmd.Args))
 
 	val := map[CommandType]Handler{
@@ -36,7 +37,7 @@ func (c *Database) HandleQuery(query string) string {
 	}[cmd.Type](cmd.Args)
 
 	logger.Info("operation executed",
-		zap.String("cmd_type", string(cmd.Type)),
+		zap.Stringer("cmd_type", cmd.Type),
 		zap.Strings("args", cmd.Args),
 		zap.String("result", val),
 		zap.Bool("error", isError(val)))
