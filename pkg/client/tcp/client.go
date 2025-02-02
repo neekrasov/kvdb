@@ -31,11 +31,7 @@ func NewClient(address string, options ...ClientOption) (*Client, error) {
 		return nil, fmt.Errorf("failed to dial: %w", err)
 	}
 
-	client := &Client{
-		connection: connection,
-		bufferSize: defaultBufferSize,
-	}
-
+	client := &Client{connection: connection}
 	for _, opt := range options {
 		opt(client)
 	}
@@ -44,6 +40,10 @@ func NewClient(address string, options ...ClientOption) (*Client, error) {
 		if err := connection.SetDeadline(time.Now().Add(client.idleTimeout)); err != nil {
 			return nil, fmt.Errorf("failed to set deadline for connection: %w", err)
 		}
+	}
+
+	if client.bufferSize == 0 {
+		client.bufferSize = defaultBufferSize
 	}
 
 	return client, nil
@@ -64,6 +64,10 @@ func (c *Client) Send(request []byte) ([]byte, error) {
 	n, err := c.connection.Read(response)
 	if err != nil {
 		return nil, err
+	}
+
+	if n == c.bufferSize {
+		return nil, ErrSmallBufferSize
 	}
 
 	dataStart := 0

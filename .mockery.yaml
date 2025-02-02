@@ -1,0 +1,18 @@
+with-expecter: True
+disable-version-string: True
+mockname: "{{.InterfaceName}}"
+unroll-variadic: False
+filename: "mock_{{.InterfaceName}}.go"
+outpkg: mocks
+dir: internal/mocks/{{.PackageName}}
+packages:
+  github.com/neekrasov/kvdb/internal/database:
+    interfaces:
+      Parser:
+      Engine:
+  github.com/neekrasov/kvdb/internal/delivery/tcp:
+    interfaces:
+      QueryHandler:
+  github.com/neekrasov/kvdb/pkg/client:
+    interfaces:
+      Client:

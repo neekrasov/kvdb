@@ -8,10 +8,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// wrapError - wrapping error with prefix 'error:'.
 func wrapError(err error) string {
 	return fmt.Sprintf("error: %s", err.Error())
 }
 
+// isError - check the prefix 'error:' exists.
 func isError(val string) bool {
 	return strings.Contains(val, "error:")
 }
@@ -27,18 +29,12 @@ func (c *Database) HandleQuery(query string) string {
 		zap.String("cmd_type", string(cmd.Type)),
 		zap.Strings("args", cmd.Args))
 
-	commandHandlers := map[CommandType]Handler{
+	val := map[CommandType]Handler{
 		CommandGET: c.get,
 		CommandSET: c.set,
 		CommandDEL: c.del,
-	}
+	}[cmd.Type](cmd.Args)
 
-	handler, exists := commandHandlers[cmd.Type]
-	if !exists {
-		return wrapError(fmt.Errorf("unsupported command type: %s", cmd.Type))
-	}
-
-	val := handler(cmd.Args)
 	logger.Info("operation executed",
 		zap.String("cmd_type", string(cmd.Type)),
 		zap.Strings("args", cmd.Args),
@@ -69,9 +65,6 @@ func (c *Database) get(args []string) string {
 
 // set executes the SET command to store a key-value pair.
 func (c *Database) set(args []string) string {
-	if err := c.engine.Set(args[0], args[1]); err != nil {
-		return wrapError(err)
-	}
-
+	c.engine.Set(args[0], args[1])
 	return args[1]
 }

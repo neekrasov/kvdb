@@ -26,15 +26,15 @@ type Command struct {
 // NewCommand creates a new instance of Command and validates it.
 func NewCommand(commandType CommandType, args []string) (*Command, error) {
 	cmd := &Command{Type: commandType, Args: args}
-	if err := cmd.validate(); err != nil {
+	if err := cmd.Validate(); err != nil {
 		return nil, err
 	}
 
 	return cmd, nil
 }
 
-// validate checks if the command type and arguments are valid.
-func (cmd *Command) validate() error {
+// Validate checks if the command type and arguments are valid.
+func (cmd *Command) Validate() error {
 	switch cmd.Type {
 	case CommandGET, CommandDEL:
 		if len(cmd.Args) != 1 {

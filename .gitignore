@@ -8,3 +8,5 @@ go.work.sum
 vendor
 *.test
 *.out
+exit
+*.html

@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/chzyer/readline"
 	"github.com/neekrasov/kvdb/pkg/client"
 )
 
@@ -23,7 +24,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = kvdb.CLI()
+	rl, err := readline.New("$ ")
+	if err != nil {
+		log.Fatalf("failed to create readline instance: %s", err.Error())
+	}
+
+	err = kvdb.CLI(rl)
 	if err != nil {
 		log.Fatal(err)
 	}

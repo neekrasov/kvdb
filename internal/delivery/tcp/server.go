@@ -8,23 +8,26 @@ import (
 	"net"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/neekrasov/kvdb/pkg/sync"
 	"go.uber.org/zap"
 )
 
+type QueryHandler interface {
+	HandleQuery(string) string
+}
+
 // Server - represents a TCP server that handles client connections and processes queries.
 type Server struct {
-	database       *database.Database // Database instance for handling queries.
-	idleTimeout    time.Duration      // Timeout for idle connections.
-	bufferSize     uint               // Maximum size of the read buffer.
-	maxConnections uint               // Maximum number of concurrent connections.
-	semaphore      *sync.Semaphore    // Semaphore to limit concurrent connections.
+	database       QueryHandler    // QueryHandler instance for handling queries.
+	idleTimeout    time.Duration   // Timeout for idle connections.
+	bufferSize     uint            // Maximum size of the read buffer.
+	maxConnections uint            // Maximum number of concurrent connections.
+	semaphore      *sync.Semaphore // Semaphore to limit concurrent connections.
 }
 
 // NewServer - creates a new Server instance with configurable options.
-func NewServer(database *database.Database, opts ...ServerOption) *Server {
+func NewServer(database QueryHandler, opts ...ServerOption) *Server {
 	server := &Server{
 		database:   database,
 		bufferSize: defaultBufferSize,

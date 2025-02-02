@@ -21,7 +21,7 @@ type Parser interface {
 // Engine defines the interface for storing, retrieving, and deleting key-value pairs.
 type Engine interface {
 	// Set stores a value for a given key.
-	Set(key, value string) error
+	Set(key, value string)
 	// Get retrieves the value associated with a given key.
 	Get(key string) (string, error)
 	// Del removes a key and its value from the storage.

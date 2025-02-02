@@ -21,12 +21,11 @@ func NewInMemoryEngine() *InMemoryEngine {
 }
 
 // Set - set stores a key-value pair in memory.
-func (e *InMemoryEngine) Set(key, value string) error {
+func (e *InMemoryEngine) Set(key, value string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	e.data[key] = value
-	return nil
 }
 
 // Get - retrieves the value associated with a key.
