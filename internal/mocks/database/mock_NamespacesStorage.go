@@ -47,30 +47,30 @@ func (_m *NamespacesStorage) Append(namespace string) ([]string, error) {
 	return r0, r1
 }
 
-// NamespacesStorage_AppendNamespaces_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Append'
-type NamespacesStorage_AppendNamespaces_Call struct {
+// NamespacesStorage_Append_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Append'
+type NamespacesStorage_Append_Call struct {
 	*mock.Call
 }
 
 // Append is a helper method to define mock.On call
 //   - namespace string
-func (_e *NamespacesStorage_Expecter) Append(namespace interface{}) *NamespacesStorage_AppendNamespaces_Call {
-	return &NamespacesStorage_AppendNamespaces_Call{Call: _e.mock.On("Append", namespace)}
+func (_e *NamespacesStorage_Expecter) Append(namespace interface{}) *NamespacesStorage_Append_Call {
+	return &NamespacesStorage_Append_Call{Call: _e.mock.On("Append", namespace)}
 }
 
-func (_c *NamespacesStorage_AppendNamespaces_Call) Run(run func(namespace string)) *NamespacesStorage_AppendNamespaces_Call {
+func (_c *NamespacesStorage_Append_Call) Run(run func(namespace string)) *NamespacesStorage_Append_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *NamespacesStorage_AppendNamespaces_Call) Return(_a0 []string, _a1 error) *NamespacesStorage_AppendNamespaces_Call {
+func (_c *NamespacesStorage_Append_Call) Return(_a0 []string, _a1 error) *NamespacesStorage_Append_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *NamespacesStorage_AppendNamespaces_Call) RunAndReturn(run func(string) ([]string, error)) *NamespacesStorage_AppendNamespaces_Call {
+func (_c *NamespacesStorage_Append_Call) RunAndReturn(run func(string) ([]string, error)) *NamespacesStorage_Append_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -93,30 +93,30 @@ func (_m *NamespacesStorage) Delete(namespace string) error {
 	return r0
 }
 
-// NamespacesStorage_DeleteNamespace_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
-type NamespacesStorage_DeleteNamespace_Call struct {
+// NamespacesStorage_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
+type NamespacesStorage_Delete_Call struct {
 	*mock.Call
 }
 
 // Delete is a helper method to define mock.On call
 //   - namespace string
-func (_e *NamespacesStorage_Expecter) Delete(namespace interface{}) *NamespacesStorage_DeleteNamespace_Call {
-	return &NamespacesStorage_DeleteNamespace_Call{Call: _e.mock.On("Delete", namespace)}
+func (_e *NamespacesStorage_Expecter) Delete(namespace interface{}) *NamespacesStorage_Delete_Call {
+	return &NamespacesStorage_Delete_Call{Call: _e.mock.On("Delete", namespace)}
 }
 
-func (_c *NamespacesStorage_DeleteNamespace_Call) Run(run func(namespace string)) *NamespacesStorage_DeleteNamespace_Call {
+func (_c *NamespacesStorage_Delete_Call) Run(run func(namespace string)) *NamespacesStorage_Delete_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *NamespacesStorage_DeleteNamespace_Call) Return(_a0 error) *NamespacesStorage_DeleteNamespace_Call {
+func (_c *NamespacesStorage_Delete_Call) Return(_a0 error) *NamespacesStorage_Delete_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *NamespacesStorage_DeleteNamespace_Call) RunAndReturn(run func(string) error) *NamespacesStorage_DeleteNamespace_Call {
+func (_c *NamespacesStorage_Delete_Call) RunAndReturn(run func(string) error) *NamespacesStorage_Delete_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -139,30 +139,30 @@ func (_m *NamespacesStorage) Exists(namespace string) bool {
 	return r0
 }
 
-// NamespacesStorage_ExistsNamespace_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Exists'
-type NamespacesStorage_ExistsNamespace_Call struct {
+// NamespacesStorage_Exists_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Exists'
+type NamespacesStorage_Exists_Call struct {
 	*mock.Call
 }
 
 // Exists is a helper method to define mock.On call
 //   - namespace string
-func (_e *NamespacesStorage_Expecter) Exists(namespace interface{}) *NamespacesStorage_ExistsNamespace_Call {
-	return &NamespacesStorage_ExistsNamespace_Call{Call: _e.mock.On("Exists", namespace)}
+func (_e *NamespacesStorage_Expecter) Exists(namespace interface{}) *NamespacesStorage_Exists_Call {
+	return &NamespacesStorage_Exists_Call{Call: _e.mock.On("Exists", namespace)}
 }
 
-func (_c *NamespacesStorage_ExistsNamespace_Call) Run(run func(namespace string)) *NamespacesStorage_ExistsNamespace_Call {
+func (_c *NamespacesStorage_Exists_Call) Run(run func(namespace string)) *NamespacesStorage_Exists_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *NamespacesStorage_ExistsNamespace_Call) Return(_a0 bool) *NamespacesStorage_ExistsNamespace_Call {
+func (_c *NamespacesStorage_Exists_Call) Return(_a0 bool) *NamespacesStorage_Exists_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *NamespacesStorage_ExistsNamespace_Call) RunAndReturn(run func(string) bool) *NamespacesStorage_ExistsNamespace_Call {
+func (_c *NamespacesStorage_Exists_Call) RunAndReturn(run func(string) bool) *NamespacesStorage_Exists_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -197,29 +197,29 @@ func (_m *NamespacesStorage) List() ([]string, error) {
 	return r0, r1
 }
 
-// NamespacesStorage_ListNamespaces_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'List'
-type NamespacesStorage_ListNamespaces_Call struct {
+// NamespacesStorage_List_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'List'
+type NamespacesStorage_List_Call struct {
 	*mock.Call
 }
 
 // List is a helper method to define mock.On call
-func (_e *NamespacesStorage_Expecter) List() *NamespacesStorage_ListNamespaces_Call {
-	return &NamespacesStorage_ListNamespaces_Call{Call: _e.mock.On("List")}
+func (_e *NamespacesStorage_Expecter) List() *NamespacesStorage_List_Call {
+	return &NamespacesStorage_List_Call{Call: _e.mock.On("List")}
 }
 
-func (_c *NamespacesStorage_ListNamespaces_Call) Run(run func()) *NamespacesStorage_ListNamespaces_Call {
+func (_c *NamespacesStorage_List_Call) Run(run func()) *NamespacesStorage_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *NamespacesStorage_ListNamespaces_Call) Return(_a0 []string, _a1 error) *NamespacesStorage_ListNamespaces_Call {
+func (_c *NamespacesStorage_List_Call) Return(_a0 []string, _a1 error) *NamespacesStorage_List_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *NamespacesStorage_ListNamespaces_Call) RunAndReturn(run func() ([]string, error)) *NamespacesStorage_ListNamespaces_Call {
+func (_c *NamespacesStorage_List_Call) RunAndReturn(run func() ([]string, error)) *NamespacesStorage_List_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -242,30 +242,30 @@ func (_m *NamespacesStorage) Save(namespace string) error {
 	return r0
 }
 
-// NamespacesStorage_SaveNamespace_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Save'
-type NamespacesStorage_SaveNamespace_Call struct {
+// NamespacesStorage_Save_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Save'
+type NamespacesStorage_Save_Call struct {
 	*mock.Call
 }
 
 // Save is a helper method to define mock.On call
 //   - namespace string
-func (_e *NamespacesStorage_Expecter) Save(namespace interface{}) *NamespacesStorage_SaveNamespace_Call {
-	return &NamespacesStorage_SaveNamespace_Call{Call: _e.mock.On("Save", namespace)}
+func (_e *NamespacesStorage_Expecter) Save(namespace interface{}) *NamespacesStorage_Save_Call {
+	return &NamespacesStorage_Save_Call{Call: _e.mock.On("Save", namespace)}
 }
 
-func (_c *NamespacesStorage_SaveNamespace_Call) Run(run func(namespace string)) *NamespacesStorage_SaveNamespace_Call {
+func (_c *NamespacesStorage_Save_Call) Run(run func(namespace string)) *NamespacesStorage_Save_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *NamespacesStorage_SaveNamespace_Call) Return(_a0 error) *NamespacesStorage_SaveNamespace_Call {
+func (_c *NamespacesStorage_Save_Call) Return(_a0 error) *NamespacesStorage_Save_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *NamespacesStorage_SaveNamespace_Call) RunAndReturn(run func(string) error) *NamespacesStorage_SaveNamespace_Call {
+func (_c *NamespacesStorage_Save_Call) RunAndReturn(run func(string) error) *NamespacesStorage_Save_Call {
 	_c.Call.Return(run)
 	return _c
 }

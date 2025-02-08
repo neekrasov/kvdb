@@ -6,6 +6,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	"github.com/neekrasov/kvdb/internal/database/storage/models"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/storage"
+	"github.com/neekrasov/kvdb/pkg/gob"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -21,7 +22,7 @@ func TestRolesStorage(t *testing.T) {
 		mockEngine.On("Get", key).Return("", false).Once()
 		mockEngine.On("Set", key, mock.Anything).Return().Once()
 
-		err := rolesStorage.Save(role)
+		err := rolesStorage.Save(&role)
 		assert.NoError(t, err)
 		mockEngine.AssertExpectations(t)
 	})
@@ -32,16 +33,17 @@ func TestRolesStorage(t *testing.T) {
 
 		mockEngine.On("Get", key).Return("{}", true).Once()
 
-		err := rolesStorage.Save(role)
+		err := rolesStorage.Save(&role)
 		assert.Equal(t, models.ErrRoleAlreadyExists, err)
 		mockEngine.AssertExpectations(t)
 	})
 
 	t.Run("Test Get - success", func(t *testing.T) {
 		role := models.Role{Name: "user"}
+		roleBytes, _ := gob.Encode(role)
 		key := storage.MakeKey(models.SystemRoleNameSpace, role.Name)
 
-		mockEngine.On("Get", key).Return(`{"name":"user"}`, true).Once()
+		mockEngine.On("Get", key).Return(string(roleBytes), true).Once()
 
 		retrievedRole, err := rolesStorage.Get(role.Name)
 		assert.NoError(t, err)
@@ -86,8 +88,9 @@ func TestRolesStorage(t *testing.T) {
 	t.Run("Test Append - success", func(t *testing.T) {
 		role := "guest"
 		key := models.SystemRolesKey
+		listBytes, _ := gob.Encode([]string{})
 
-		mockEngine.On("Get", key).Return("[]", true).Once()
+		mockEngine.On("Get", key).Return(string(listBytes), true).Once()
 		mockEngine.On("Set", key, mock.Anything).Return().Once()
 
 		roles, err := rolesStorage.Append(role)

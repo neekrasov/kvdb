@@ -103,10 +103,11 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			name:     "successful createUser command",
 			query:    "create_user username password",
 			user:     &models.User{Username: "admin"},
-			expected: "1",
+			expected: "admin",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
 				p.On("Parse", "create_user username password").Return(&command.Command{Type: command.CommandCREATEUSER, Args: []string{"username", "password"}}, nil).Once()
-				us.On("Create", "username", "password").Return(1, nil).Once()
+				us.On("Create", "username", "password").Return(&models.User{Username: "admin"}, nil).Once()
+				us.On("Append", "admin").Return([]string{}, nil).Once()
 			},
 		},
 		{
@@ -181,6 +182,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
 				p.On("Parse", "create_ns namespace").Return(&command.Command{Type: command.CommandCREATENAMESPACE, Args: []string{"namespace"}}, nil).Once()
 				ns.On("Save", "namespace").Return(nil).Once()
+				ns.On("Append", "namespace").Return(nil, nil).Once()
 			},
 		},
 		{

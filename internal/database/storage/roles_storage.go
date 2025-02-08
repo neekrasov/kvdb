@@ -1,9 +1,8 @@
 package storage
 
 import (
-	"encoding/json"
-
 	"github.com/neekrasov/kvdb/internal/database/storage/models"
+	"github.com/neekrasov/kvdb/pkg/gob"
 )
 
 // RolesStorage - A struct that manages role-related operations, such as creating, deleting, and listing roles.
@@ -29,7 +28,7 @@ func (s *RolesStorage) Get(name string) (*models.Role, error) {
 	}
 
 	var role models.Role
-	if err := json.Unmarshal([]byte(roleBytes), &role); err != nil {
+	if err := gob.Decode([]byte(roleBytes), &role); err != nil {
 		return nil, err
 	}
 
@@ -54,7 +53,7 @@ func (s *RolesStorage) Append(role string) ([]string, error) {
 	}
 	roles = append(roles, role)
 
-	rolesBytes, err := json.Marshal(roles)
+	rolesBytes, err := gob.Encode(roles)
 	if err != nil {
 		return roles, err
 	}
@@ -71,7 +70,7 @@ func (s *RolesStorage) List() ([]string, error) {
 		return roles, nil
 	}
 
-	if err := json.Unmarshal([]byte(rolesString), &roles); err != nil {
+	if err := gob.Decode([]byte(rolesString), &roles); err != nil {
 		return nil, err
 	}
 
@@ -79,13 +78,13 @@ func (s *RolesStorage) List() ([]string, error) {
 }
 
 // Save - Saves a role to the storage.
-func (s *RolesStorage) Save(role models.Role) error {
+func (s *RolesStorage) Save(role *models.Role) error {
 	key := MakeKey(models.SystemRoleNameSpace, role.Name)
 	if _, exists := s.engine.Get(key); exists {
 		return models.ErrRoleAlreadyExists
 	}
 
-	roleBytes, err := json.Marshal(role)
+	roleBytes, err := gob.Encode(role)
 	if err != nil {
 		return err
 	}

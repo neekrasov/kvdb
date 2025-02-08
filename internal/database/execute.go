@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/neekrasov/kvdb/internal/database/command"
@@ -69,7 +68,7 @@ func (c *Database) HandleQuery(user *models.User, query string) string {
 		zap.Bool("error", isError(result)))
 
 	if oldUsr != user {
-		err := c.userStorage.SaveRaw(*user)
+		err := c.userStorage.SaveRaw(user)
 		logger.Debug(
 			"save changed user failed",
 			zap.Any("old_user", oldUsr),
@@ -168,12 +167,16 @@ func (c *Database) set(user *models.User, args []string) string {
 
 // createUser - Executes the CREATEUSER command to create a new user.
 func (c *Database) createUser(user *models.User, args []string) string {
-	id, err := c.userStorage.Create(args[0], args[1])
+	usr, err := c.userStorage.Create(args[0], args[1])
 	if err != nil {
 		return wrapError(err)
 	}
 
-	return strconv.Itoa(id)
+	if _, err := c.userStorage.Append(usr.Username); err != nil {
+		return wrapError(err)
+	}
+
+	return usr.Username
 }
 
 // assignRole - Executes the ASSIGNROLE command to assign a role to a user.
@@ -216,7 +219,7 @@ func (c *Database) createRole(user *models.User, args []string) string {
 		return wrapError(err)
 	}
 
-	if err := c.rolesStorage.Save(role); err != nil {
+	if err := c.rolesStorage.Save(&role); err != nil {
 		return wrapError(err)
 	}
 
@@ -277,6 +280,10 @@ func (c *Database) me(user *models.User, _ []string) string {
 func (c *Database) createNS(user *models.User, args []string) string {
 	err := c.namespaceStorage.Save(args[0])
 	if err != nil {
+		return wrapError(err)
+	}
+
+	if _, err = c.namespaceStorage.Append(args[0]); err != nil {
 		return wrapError(err)
 	}
 

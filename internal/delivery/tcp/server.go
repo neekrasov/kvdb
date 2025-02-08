@@ -58,6 +58,7 @@ func (s *Server) Start(ctx context.Context, address string) error {
 	if err != nil {
 		return fmt.Errorf("failed to start TCP server: %w", err)
 	}
+	fmt.Println("LISTEN", listener.Addr())
 
 	logger.Info("start server listening", zap.String("addr", address))
 	go func() {
@@ -96,6 +97,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 		logger.Debug("client disconnected", zap.Stringer("address", conn.RemoteAddr()))
+
 	}()
 
 	var user *models.User
@@ -145,6 +147,9 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 		response := s.database.HandleQuery(user, string(buffer[:n]))
+		if response == "" {
+			response = "empty result"
+		}
 		if _, err := conn.Write([]byte(response)); err != nil {
 			logger.Warn(
 				"failed to write data",

@@ -6,6 +6,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	"github.com/neekrasov/kvdb/internal/database/storage/models"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/storage"
+	"github.com/neekrasov/kvdb/pkg/gob"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -82,7 +83,9 @@ func TestNamespaceStorage(t *testing.T) {
 		namespace := "appendNamespace"
 		key := models.SystemNamespacesKey
 
-		mockEngine.On("Get", key).Return("[]", true).Once()
+		listBytes, _ := gob.Encode([]string{})
+
+		mockEngine.On("Get", key).Return(string(listBytes), true).Once()
 		mockEngine.On("Set", key, mock.Anything).Return().Once()
 
 		namespaces, err := nsStorage.Append(namespace)

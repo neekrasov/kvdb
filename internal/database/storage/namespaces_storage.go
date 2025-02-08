@@ -1,9 +1,8 @@
 package storage
 
 import (
-	"encoding/json"
-
 	"github.com/neekrasov/kvdb/internal/database/storage/models"
+	"github.com/neekrasov/kvdb/pkg/gob"
 )
 
 // NamespaceStorage - A struct that manages namespace-related operations,
@@ -58,7 +57,7 @@ func (s *NamespaceStorage) Append(namespace string) ([]string, error) {
 	}
 	namespaces = append(namespaces, namespace)
 
-	usersBytes, err := json.Marshal(namespaces)
+	usersBytes, err := gob.Encode(namespaces)
 	if err != nil {
 		return namespaces, err
 	}
@@ -75,7 +74,7 @@ func (s *NamespaceStorage) List() ([]string, error) {
 		return namespaces, nil
 	}
 
-	if err := json.Unmarshal([]byte(namespacesString), &namespaces); err != nil {
+	if err := gob.Decode([]byte(namespacesString), &namespaces); err != nil {
 		return nil, err
 	}
 

@@ -1,9 +1,8 @@
 package storage
 
 import (
-	"encoding/json"
-
 	"github.com/neekrasov/kvdb/internal/database/storage/models"
+	"github.com/neekrasov/kvdb/pkg/gob"
 )
 
 // UsersStorage - A struct that manages user-related operations,
@@ -13,9 +12,7 @@ type UsersStorage struct {
 }
 
 // NewUsersStorage - Initializes and returns a new UsersStorage instance with the provided storage engine.
-func NewUsersStorage(
-	engine Engine,
-) *UsersStorage {
+func NewUsersStorage(engine Engine) *UsersStorage {
 	return &UsersStorage{
 		engine: engine,
 	}
@@ -24,13 +21,13 @@ func NewUsersStorage(
 // Authenticate - Authenticates a user by verifying their username and password.
 func (s *UsersStorage) Authenticate(username, password string) (*models.User, error) {
 	userKey := MakeKey(models.SystemUserNameSpace, username)
-	userBytes, exists := s.engine.Get(userKey)
+	userString, exists := s.engine.Get(userKey)
 	if !exists {
 		return nil, models.ErrAuthenticationFailed
 	}
 
 	var user models.User
-	if err := json.Unmarshal([]byte(userBytes), &user); err != nil {
+	if err := gob.Decode([]byte(userString), &user); err != nil {
 		return nil, err
 	}
 
@@ -44,7 +41,7 @@ func (s *UsersStorage) Authenticate(username, password string) (*models.User, er
 // AssignRole - Assigns a role to a user.
 func (s *UsersStorage) AssignRole(username string, role string) error {
 	userKey := MakeKey(models.SystemUserNameSpace, username)
-	userBytes, exists := s.engine.Get(userKey)
+	userString, exists := s.engine.Get(userKey)
 	if !exists {
 		return models.ErrUserNotFound
 	}
@@ -55,12 +52,12 @@ func (s *UsersStorage) AssignRole(username string, role string) error {
 	}
 
 	var user models.User
-	if err := json.Unmarshal([]byte(userBytes), &user); err != nil {
+	if err := gob.Decode([]byte(userString), &user); err != nil {
 		return err
 	}
 
 	user.Roles = append(user.Roles, role)
-	userBytesUpdated, err := json.Marshal(user)
+	userBytesUpdated, err := gob.Encode(user)
 	if err != nil {
 		return err
 	}
@@ -70,10 +67,10 @@ func (s *UsersStorage) AssignRole(username string, role string) error {
 }
 
 // Create - Creates a new user with the specified username and password.
-func (s *UsersStorage) Create(username, password string) (id int, err error) {
+func (s *UsersStorage) Create(username, password string) (*models.User, error) {
 	key := MakeKey(models.SystemUserNameSpace, username)
 	if _, exists := s.engine.Get(key); exists {
-		return 0, models.ErrUserAlreadyExists
+		return nil, models.ErrUserAlreadyExists
 	}
 
 	user := models.User{
@@ -83,19 +80,19 @@ func (s *UsersStorage) Create(username, password string) (id int, err error) {
 		Cur:      models.DefaultRole,
 	}
 
-	userBytes, err := json.Marshal(user)
+	userBytes, err := gob.Encode(user)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	s.engine.Set(key, string(userBytes))
 
-	return
+	return &user, nil
 }
 
 // SaveRaw - Saves a user object directly to the storage.
-func (s *UsersStorage) SaveRaw(usr models.User) error {
-	key := MakeKey(models.SystemUserNameSpace, usr.Username)
-	userBytes, err := json.Marshal(usr)
+func (s *UsersStorage) SaveRaw(user *models.User) error {
+	key := MakeKey(models.SystemUserNameSpace, user.Username)
+	userBytes, err := gob.Encode(user)
 	if err != nil {
 		return err
 	}
@@ -106,14 +103,15 @@ func (s *UsersStorage) SaveRaw(usr models.User) error {
 
 // Get - Retrieves a user by their username.
 func (s *UsersStorage) Get(username string) (*models.User, error) {
+
 	key := MakeKey(models.SystemUserNameSpace, username)
-	userBytes, exists := s.engine.Get(key)
+	userString, exists := s.engine.Get(key)
 	if !exists {
 		return nil, models.ErrUserNotFound
 	}
 
 	var user models.User
-	if err := json.Unmarshal([]byte(userBytes), &user); err != nil {
+	if err := gob.Decode([]byte(userString), &user); err != nil {
 		return nil, err
 	}
 
@@ -138,7 +136,7 @@ func (s *UsersStorage) Append(user string) ([]string, error) {
 	}
 	users = append(users, user)
 
-	usersBytes, err := json.Marshal(users)
+	usersBytes, err := gob.Encode(users)
 	if err != nil {
 		return users, err
 	}
@@ -150,12 +148,12 @@ func (s *UsersStorage) Append(user string) ([]string, error) {
 // ListUsernames - Retrieves a list of all usernames in the system.
 func (s *UsersStorage) ListUsernames() ([]string, error) {
 	var users []string
-	usersString, exists := s.engine.Get(models.SystemUsersKey)
+	userString, exists := s.engine.Get(models.SystemUsersKey)
 	if !exists {
 		return users, nil
 	}
 
-	if err := json.Unmarshal([]byte(usersString), &users); err != nil {
+	if err := gob.Decode([]byte(userString), &users); err != nil {
 		return nil, err
 	}
 

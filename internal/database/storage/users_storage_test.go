@@ -1,11 +1,11 @@
 package storage
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/neekrasov/kvdb/internal/database/storage/models"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/storage"
+	"github.com/neekrasov/kvdb/pkg/gob"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -45,7 +45,7 @@ func TestUsersStorage(t *testing.T) {
 		key := MakeKey(models.SystemUserNameSpace, username)
 
 		user := models.User{Username: username, Password: password}
-		userBytes, _ := json.Marshal(user)
+		userBytes, _ := gob.Encode(user)
 
 		mockEngine.On("Get", key).Return(string(userBytes), true).Once()
 
@@ -61,7 +61,7 @@ func TestUsersStorage(t *testing.T) {
 		key := MakeKey(models.SystemUserNameSpace, username)
 
 		user := models.User{Username: username, Password: "wrongPass"}
-		userBytes, _ := json.Marshal(user)
+		userBytes, _ := gob.Encode(user)
 
 		mockEngine.On("Get", key).Return(string(userBytes), true).Once()
 
@@ -89,7 +89,7 @@ func TestUsersStorage(t *testing.T) {
 		roleKey := MakeKey(models.SystemRoleNameSpace, role)
 
 		user := models.User{Username: username, Roles: []string{}}
-		userBytes, _ := json.Marshal(user)
+		userBytes, _ := gob.Encode(user)
 
 		mockEngine.On("Get", userKey).Return(string(userBytes), true).Once()
 		mockEngine.On("Get", roleKey).Return("{}", true).Once()
@@ -119,7 +119,7 @@ func TestUsersStorage(t *testing.T) {
 		roleKey := MakeKey(models.SystemRoleNameSpace, role)
 
 		user := models.User{Username: username, Roles: []string{}}
-		userBytes, _ := json.Marshal(user)
+		userBytes, _ := gob.Encode(user)
 
 		mockEngine.On("Get", userKey).Return(string(userBytes), true).Once()
 		mockEngine.On("Get", roleKey).Return("", false).Once()
@@ -158,31 +158,16 @@ func TestUsersStorage(t *testing.T) {
 
 		mockEngine.On("Set", key, mock.Anything).Return().Once()
 
-		err := usersStorage.SaveRaw(user)
+		err := usersStorage.SaveRaw(&user)
 		assert.NoError(t, err)
 		mockEngine.AssertExpectations(t)
 	})
-
-	// t.Run("Test SaveRaw - JSON marshal error", func(t *testing.T) {
-	// 	user := models.User{Username: "testUser", Password: "testPass"}
-	// 	key := MakeKey(models.SystemUserNameSpace, user.Username)
-
-	// 	oldMarshal := jsonMarshal
-	// 	jsonMarshal = func(v interface{}) ([]byte, error) {
-	// 		return nil, assert.AnError
-	// 	}
-	// 	defer func() { jsonMarshal = oldMarshal }()
-
-	// 	err := usersStorage.SaveRaw(user)
-	// 	assert.Error(t, err)
-	// 	mockEngine.AssertExpectations(t)
-	// })
 
 	t.Run("Test Get - success", func(t *testing.T) {
 		username := "testUser"
 		key := MakeKey(models.SystemUserNameSpace, username)
 		user := models.User{Username: username, Password: "testPass"}
-		userBytes, _ := json.Marshal(user)
+		userBytes, _ := gob.Encode(user)
 
 		mockEngine.On("Get", key).Return(string(userBytes), true).Once()
 
@@ -218,7 +203,9 @@ func TestUsersStorage(t *testing.T) {
 		username := "newUser"
 		key := models.SystemUsersKey
 
-		mockEngine.On("Get", key).Return("[]", true).Once()
+		listBytes, _ := gob.Encode([]string{})
+
+		mockEngine.On("Get", key).Return(string(listBytes), true).Once()
 		mockEngine.On("Set", key, mock.Anything).Return().Once()
 
 		users, err := usersStorage.Append(username)
@@ -227,27 +214,10 @@ func TestUsersStorage(t *testing.T) {
 		mockEngine.AssertExpectations(t)
 	})
 
-	// t.Run("Test Append - JSON marshal error", func(t *testing.T) {
-	// 	username := "newUser"
-	// 	key := models.SystemUsersKey
-
-	// 	mockEngine.On("Get", key).Return("[]", true).Once()
-
-	// 	oldMarshal := jsonMarshal
-	// 	jsonMarshal = func(v interface{}) ([]byte, error) {
-	// 		return nil, assert.AnError
-	// 	}
-	// 	defer func() { jsonMarshal = oldMarshal }()
-
-	// 	_, err := usersStorage.Append(username)
-	// 	assert.Error(t, err)
-	// 	mockEngine.AssertExpectations(t)
-	// })
-
 	t.Run("Test ListUsernames - success", func(t *testing.T) {
 		key := models.SystemUsersKey
 		users := []string{"user1", "user2"}
-		usersBytes, _ := json.Marshal(users)
+		usersBytes, _ := gob.Encode(users)
 
 		mockEngine.On("Get", key).Return(string(usersBytes), true).Once()
 
@@ -268,7 +238,7 @@ func TestUsersStorage(t *testing.T) {
 		mockEngine.AssertExpectations(t)
 	})
 
-	t.Run("Test ListUsernames - JSON unmarshal error", func(t *testing.T) {
+	t.Run("Test ListUsernames - decode error", func(t *testing.T) {
 		key := models.SystemUsersKey
 
 		mockEngine.On("Get", key).Return("invalid json", true).Once()

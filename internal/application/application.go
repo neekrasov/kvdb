@@ -85,7 +85,7 @@ func (a *Application) Start(ctx context.Context) error {
 
 func initRolesStorage(engine *engine.InMemoryEngine, cfg *config.Config) (*storage.RolesStorage, error) {
 	storage := storage.NewRolesStorage(engine)
-	err := storage.Save(models.Role{
+	err := storage.Save(&models.Role{
 		Name: models.RootRoleName,
 		Get:  true, Set: true, Del: true,
 		Namespace: models.DefaultNameSpace,
@@ -94,7 +94,7 @@ func initRolesStorage(engine *engine.InMemoryEngine, cfg *config.Config) (*stora
 		logger.Warn("save root role failed", zap.Error(err))
 	}
 
-	err = storage.Save(models.Role{
+	err = storage.Save(&models.Role{
 		Name: models.DefaultRoleName,
 		Get:  true, Set: true, Del: true,
 		Namespace: models.DefaultNameSpace,
@@ -116,7 +116,7 @@ func initRolesStorage(engine *engine.InMemoryEngine, cfg *config.Config) (*stora
 			return nil, errors.New("invalid role namespace in default roles")
 		}
 
-		err := storage.Save(models.Role{
+		err := storage.Save(&models.Role{
 			Name:      role.Name,
 			Get:       role.Get,
 			Set:       role.Set,
@@ -126,6 +126,13 @@ func initRolesStorage(engine *engine.InMemoryEngine, cfg *config.Config) (*stora
 		if err != nil {
 			logger.Warn("save default role failed", zap.Error(err))
 		}
+
+		list, err := storage.Append(role.Name)
+		if err != nil {
+			logger.Warn("save default role in global list failed", zap.Error(err))
+		}
+
+		logger.Debug("created default role", zap.Any("role", role.Name), zap.Strings("list", list))
 	}
 
 	return storage, nil
@@ -136,7 +143,7 @@ func initUserStorage(
 	cfg *config.Config,
 ) (*storage.UsersStorage, error) {
 	storage := storage.NewUsersStorage(engine)
-	err := storage.SaveRaw(models.User{
+	err := storage.SaveRaw(&models.User{
 		Username: cfg.Root.Username,
 		Password: cfg.Root.Password,
 		Roles:    []string{models.RootRoleName},
@@ -179,12 +186,18 @@ func initUserStorage(
 			},
 		}
 
-		err = storage.SaveRaw(user)
+		err = storage.SaveRaw(&user)
 		if err != nil {
 			logger.Warn("save default user failed", zap.Error(err))
 		}
+
+		list, err := storage.Append(user.Username)
+		if err != nil {
+			logger.Warn("save default user in global list failed", zap.Error(err))
+		}
+
 		user.Password = ""
-		logger.Debug("created default user", zap.Any("user", user))
+		logger.Debug("created default user", zap.Any("user", user), zap.Strings("list", list))
 	}
 
 	return storage, nil
@@ -206,6 +219,13 @@ func initNamespacesStorage(engine *engine.InMemoryEngine, defaultNamespaces []co
 		if err != nil {
 			logger.Warn("save namespace in default list failed", zap.Error(err))
 		}
+
+		list, err := storage.Append(namespace.Name)
+		if err != nil {
+			logger.Warn("save default namespace in global list failed", zap.Error(err))
+		}
+
+		logger.Debug("created default namespace", zap.Any("namespace", namespace.Name), zap.Strings("list", list))
 	}
 
 	return storage, nil

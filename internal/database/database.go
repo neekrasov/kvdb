@@ -52,11 +52,11 @@ type UsersStorage interface {
 	// Authenticate - Authenticates a user by username and password.
 	Authenticate(username, password string) (*models.User, error)
 	// Create - Creates a new user.
-	Create(username, password string) (id int, err error)
+	Create(username, password string) (*models.User, error)
 	// Get - Retrieves a user by username.
 	Get(username string) (*models.User, error)
 	// SaveRaw - Saves a user object directly to storage.
-	SaveRaw(user models.User) error
+	SaveRaw(user *models.User) error
 	// Delete - Deletes a user by username.
 	Delete(username string) error
 	// AssignRole - Assigns a role to a user.
@@ -70,7 +70,7 @@ type UsersStorage interface {
 // RolesStorage - An interface for managing roles.
 type RolesStorage interface {
 	// Save - Saves a role.
-	Save(role models.Role) error
+	Save(role *models.Role) error
 	// Get - Retrieves a role by name.
 	Get(name string) (*models.Role, error)
 	// Delete - Deletes a role by name.

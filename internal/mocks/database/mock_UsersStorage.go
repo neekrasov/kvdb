@@ -50,30 +50,30 @@ func (_m *UsersStorage) Append(user string) ([]string, error) {
 	return r0, r1
 }
 
-// UsersStorage_AppendUsers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Append'
-type UsersStorage_AppendUsers_Call struct {
+// UsersStorage_Append_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Append'
+type UsersStorage_Append_Call struct {
 	*mock.Call
 }
 
 // Append is a helper method to define mock.On call
 //   - user string
-func (_e *UsersStorage_Expecter) Append(user interface{}) *UsersStorage_AppendUsers_Call {
-	return &UsersStorage_AppendUsers_Call{Call: _e.mock.On("Append", user)}
+func (_e *UsersStorage_Expecter) Append(user interface{}) *UsersStorage_Append_Call {
+	return &UsersStorage_Append_Call{Call: _e.mock.On("Append", user)}
 }
 
-func (_c *UsersStorage_AppendUsers_Call) Run(run func(user string)) *UsersStorage_AppendUsers_Call {
+func (_c *UsersStorage_Append_Call) Run(run func(user string)) *UsersStorage_Append_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *UsersStorage_AppendUsers_Call) Return(_a0 []string, _a1 error) *UsersStorage_AppendUsers_Call {
+func (_c *UsersStorage_Append_Call) Return(_a0 []string, _a1 error) *UsersStorage_Append_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *UsersStorage_AppendUsers_Call) RunAndReturn(run func(string) ([]string, error)) *UsersStorage_AppendUsers_Call {
+func (_c *UsersStorage_Append_Call) RunAndReturn(run func(string) ([]string, error)) *UsersStorage_Append_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -185,22 +185,24 @@ func (_c *UsersStorage_Authenticate_Call) RunAndReturn(run func(string, string) 
 }
 
 // Create provides a mock function with given fields: username, password
-func (_m *UsersStorage) Create(username string, password string) (int, error) {
+func (_m *UsersStorage) Create(username string, password string) (*models.User, error) {
 	ret := _m.Called(username, password)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Create")
 	}
 
-	var r0 int
+	var r0 *models.User
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, string) (int, error)); ok {
+	if rf, ok := ret.Get(0).(func(string, string) (*models.User, error)); ok {
 		return rf(username, password)
 	}
-	if rf, ok := ret.Get(0).(func(string, string) int); ok {
+	if rf, ok := ret.Get(0).(func(string, string) *models.User); ok {
 		r0 = rf(username, password)
 	} else {
-		r0 = ret.Get(0).(int)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.User)
+		}
 	}
 
 	if rf, ok := ret.Get(1).(func(string, string) error); ok {
@@ -212,31 +214,31 @@ func (_m *UsersStorage) Create(username string, password string) (int, error) {
 	return r0, r1
 }
 
-// UsersStorage_CreateUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Create'
-type UsersStorage_CreateUser_Call struct {
+// UsersStorage_Create_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Create'
+type UsersStorage_Create_Call struct {
 	*mock.Call
 }
 
 // Create is a helper method to define mock.On call
 //   - username string
 //   - password string
-func (_e *UsersStorage_Expecter) Create(username interface{}, password interface{}) *UsersStorage_CreateUser_Call {
-	return &UsersStorage_CreateUser_Call{Call: _e.mock.On("Create", username, password)}
+func (_e *UsersStorage_Expecter) Create(username interface{}, password interface{}) *UsersStorage_Create_Call {
+	return &UsersStorage_Create_Call{Call: _e.mock.On("Create", username, password)}
 }
 
-func (_c *UsersStorage_CreateUser_Call) Run(run func(username string, password string)) *UsersStorage_CreateUser_Call {
+func (_c *UsersStorage_Create_Call) Run(run func(username string, password string)) *UsersStorage_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string), args[1].(string))
 	})
 	return _c
 }
 
-func (_c *UsersStorage_CreateUser_Call) Return(id int, err error) *UsersStorage_CreateUser_Call {
-	_c.Call.Return(id, err)
+func (_c *UsersStorage_Create_Call) Return(_a0 *models.User, _a1 error) *UsersStorage_Create_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *UsersStorage_CreateUser_Call) RunAndReturn(run func(string, string) (int, error)) *UsersStorage_CreateUser_Call {
+func (_c *UsersStorage_Create_Call) RunAndReturn(run func(string, string) (*models.User, error)) *UsersStorage_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -259,30 +261,30 @@ func (_m *UsersStorage) Delete(username string) error {
 	return r0
 }
 
-// UsersStorage_DeleteUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
-type UsersStorage_DeleteUser_Call struct {
+// UsersStorage_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
+type UsersStorage_Delete_Call struct {
 	*mock.Call
 }
 
 // Delete is a helper method to define mock.On call
 //   - username string
-func (_e *UsersStorage_Expecter) Delete(username interface{}) *UsersStorage_DeleteUser_Call {
-	return &UsersStorage_DeleteUser_Call{Call: _e.mock.On("Delete", username)}
+func (_e *UsersStorage_Expecter) Delete(username interface{}) *UsersStorage_Delete_Call {
+	return &UsersStorage_Delete_Call{Call: _e.mock.On("Delete", username)}
 }
 
-func (_c *UsersStorage_DeleteUser_Call) Run(run func(username string)) *UsersStorage_DeleteUser_Call {
+func (_c *UsersStorage_Delete_Call) Run(run func(username string)) *UsersStorage_Delete_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *UsersStorage_DeleteUser_Call) Return(_a0 error) *UsersStorage_DeleteUser_Call {
+func (_c *UsersStorage_Delete_Call) Return(_a0 error) *UsersStorage_Delete_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *UsersStorage_DeleteUser_Call) RunAndReturn(run func(string) error) *UsersStorage_DeleteUser_Call {
+func (_c *UsersStorage_Delete_Call) RunAndReturn(run func(string) error) *UsersStorage_Delete_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -317,30 +319,30 @@ func (_m *UsersStorage) Get(username string) (*models.User, error) {
 	return r0, r1
 }
 
-// UsersStorage_GetUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Get'
-type UsersStorage_GetUser_Call struct {
+// UsersStorage_Get_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Get'
+type UsersStorage_Get_Call struct {
 	*mock.Call
 }
 
 // Get is a helper method to define mock.On call
 //   - username string
-func (_e *UsersStorage_Expecter) Get(username interface{}) *UsersStorage_GetUser_Call {
-	return &UsersStorage_GetUser_Call{Call: _e.mock.On("Get", username)}
+func (_e *UsersStorage_Expecter) Get(username interface{}) *UsersStorage_Get_Call {
+	return &UsersStorage_Get_Call{Call: _e.mock.On("Get", username)}
 }
 
-func (_c *UsersStorage_GetUser_Call) Run(run func(username string)) *UsersStorage_GetUser_Call {
+func (_c *UsersStorage_Get_Call) Run(run func(username string)) *UsersStorage_Get_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
 	return _c
 }
 
-func (_c *UsersStorage_GetUser_Call) Return(_a0 *models.User, _a1 error) *UsersStorage_GetUser_Call {
+func (_c *UsersStorage_Get_Call) Return(_a0 *models.User, _a1 error) *UsersStorage_Get_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *UsersStorage_GetUser_Call) RunAndReturn(run func(string) (*models.User, error)) *UsersStorage_GetUser_Call {
+func (_c *UsersStorage_Get_Call) RunAndReturn(run func(string) (*models.User, error)) *UsersStorage_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -403,7 +405,7 @@ func (_c *UsersStorage_ListUsernames_Call) RunAndReturn(run func() ([]string, er
 }
 
 // SaveRaw provides a mock function with given fields: user
-func (_m *UsersStorage) SaveRaw(user models.User) error {
+func (_m *UsersStorage) SaveRaw(user *models.User) error {
 	ret := _m.Called(user)
 
 	if len(ret) == 0 {
@@ -411,7 +413,7 @@ func (_m *UsersStorage) SaveRaw(user models.User) error {
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(models.User) error); ok {
+	if rf, ok := ret.Get(0).(func(*models.User) error); ok {
 		r0 = rf(user)
 	} else {
 		r0 = ret.Error(0)
@@ -420,30 +422,30 @@ func (_m *UsersStorage) SaveRaw(user models.User) error {
 	return r0
 }
 
-// UsersStorage_SaveUserRaw_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveRaw'
-type UsersStorage_SaveUserRaw_Call struct {
+// UsersStorage_SaveRaw_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveRaw'
+type UsersStorage_SaveRaw_Call struct {
 	*mock.Call
 }
 
 // SaveRaw is a helper method to define mock.On call
-//   - user models.User
-func (_e *UsersStorage_Expecter) SaveRaw(user interface{}) *UsersStorage_SaveUserRaw_Call {
-	return &UsersStorage_SaveUserRaw_Call{Call: _e.mock.On("SaveRaw", user)}
+//   - user *models.User
+func (_e *UsersStorage_Expecter) SaveRaw(user interface{}) *UsersStorage_SaveRaw_Call {
+	return &UsersStorage_SaveRaw_Call{Call: _e.mock.On("SaveRaw", user)}
 }
 
-func (_c *UsersStorage_SaveUserRaw_Call) Run(run func(user models.User)) *UsersStorage_SaveUserRaw_Call {
+func (_c *UsersStorage_SaveRaw_Call) Run(run func(user *models.User)) *UsersStorage_SaveRaw_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(models.User))
+		run(args[0].(*models.User))
 	})
 	return _c
 }
 
-func (_c *UsersStorage_SaveUserRaw_Call) Return(_a0 error) *UsersStorage_SaveUserRaw_Call {
+func (_c *UsersStorage_SaveRaw_Call) Return(_a0 error) *UsersStorage_SaveRaw_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *UsersStorage_SaveUserRaw_Call) RunAndReturn(run func(models.User) error) *UsersStorage_SaveUserRaw_Call {
+func (_c *UsersStorage_SaveRaw_Call) RunAndReturn(run func(*models.User) error) *UsersStorage_SaveRaw_Call {
 	_c.Call.Return(run)
 	return _c
 }

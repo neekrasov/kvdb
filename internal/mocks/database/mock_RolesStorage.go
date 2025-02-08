@@ -240,7 +240,7 @@ func (_c *RolesStorage_List_Call) RunAndReturn(run func() ([]string, error)) *Ro
 }
 
 // Save provides a mock function with given fields: role
-func (_m *RolesStorage) Save(role models.Role) error {
+func (_m *RolesStorage) Save(role *models.Role) error {
 	ret := _m.Called(role)
 
 	if len(ret) == 0 {
@@ -248,7 +248,7 @@ func (_m *RolesStorage) Save(role models.Role) error {
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(models.Role) error); ok {
+	if rf, ok := ret.Get(0).(func(*models.Role) error); ok {
 		r0 = rf(role)
 	} else {
 		r0 = ret.Error(0)
@@ -263,14 +263,14 @@ type RolesStorage_Save_Call struct {
 }
 
 // Save is a helper method to define mock.On call
-//   - role models.Role
+//   - role *models.Role
 func (_e *RolesStorage_Expecter) Save(role interface{}) *RolesStorage_Save_Call {
 	return &RolesStorage_Save_Call{Call: _e.mock.On("Save", role)}
 }
 
-func (_c *RolesStorage_Save_Call) Run(run func(role models.Role)) *RolesStorage_Save_Call {
+func (_c *RolesStorage_Save_Call) Run(run func(role *models.Role)) *RolesStorage_Save_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(models.Role))
+		run(args[0].(*models.Role))
 	})
 	return _c
 }
@@ -280,7 +280,7 @@ func (_c *RolesStorage_Save_Call) Return(_a0 error) *RolesStorage_Save_Call {
 	return _c
 }
 
-func (_c *RolesStorage_Save_Call) RunAndReturn(run func(models.Role) error) *RolesStorage_Save_Call {
+func (_c *RolesStorage_Save_Call) RunAndReturn(run func(*models.Role) error) *RolesStorage_Save_Call {
 	_c.Call.Return(run)
 	return _c
 }
