@@ -2,16 +2,17 @@ package tcp
 
 import (
 	"context"
-	"io"
 	"net"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/neekrasov/kvdb/internal/database"
+	models "github.com/neekrasov/kvdb/internal/database/storage/models"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/tcp"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,8 +50,10 @@ func TestServer(t *testing.T) {
 	defer cancel()
 
 	databaseMock := mocks.NewQueryHandler(t)
-	databaseMock.EXPECT().HandleQuery("client-1").Return("hello-client-1")
-	databaseMock.EXPECT().HandleQuery("client-2").Return("hello-client-2")
+	databaseMock.On("HandleQuery", mock.Anything, "").Return("hello-client-1")
+	databaseMock.On("HandleQuery", mock.Anything, "").Return("hello-client-2")
+	databaseMock.On("Login", mock.Anything).Return(&models.User{Username: "client-1"}, nil)
+	databaseMock.On("Logout", mock.Anything, []string(nil)).Return("").Maybe()
 	server := NewServer(databaseMock, WithServerIdleTimeout(time.Minute))
 
 	serverAddress := "localhost:22222"
@@ -78,7 +81,7 @@ func TestServer(t *testing.T) {
 		clientErr = conn.Close()
 		require.NoError(t, clientErr)
 
-		assert.Equal(t, "hello-client-1", string(buffer[:size]))
+		assert.Equal(t, "OK", string(buffer[:size]))
 	}()
 
 	go func() {
@@ -97,7 +100,7 @@ func TestServer(t *testing.T) {
 		clientErr = conn.Close()
 		require.NoError(t, clientErr)
 
-		assert.Equal(t, "hello-client-2", string(buffer[:size]))
+		assert.Equal(t, "OK", string(buffer[:size]))
 	}()
 
 	go func() {
@@ -115,9 +118,8 @@ func TestServer(t *testing.T) {
 
 		buffer := make([]byte, 1024)
 		_, clientErr = conn.Read(buffer)
-		require.ErrorIs(t, clientErr, io.EOF)
-
 		require.NoError(t, conn.Close())
+		require.NoError(t, clientErr)
 	}()
 
 	wg.Wait()

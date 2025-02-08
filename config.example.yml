@@ -3,13 +3,42 @@ engine:
 network:
   address: "127.0.0.1:3223"
   max_connections: 100
-  max_message_size: "4KB"
-  idle_timeout: 5m
+  max_message_size: "1KB"
+  idle_timeout: 20m
 logging:
-  level: "info"
+  level: "debug"
   output: "./log/output.log"
-wal:  
-  flushing_batch_size: 100
-  flushing_batch_timeout: "10ms"
-  max_segment_size: "10MB"
-	data_directory: "/data/spider/wal"
+root:
+  username: "root"
+  password: "root"
+default_roles:
+  - name: "rwd_tenant1"
+    get: true
+    set: true
+    del: true
+    namespace: "tenant1"
+  - name: "r_tenant1"
+    get: true
+    set: false
+    del: false
+    namespace: "tenant1"
+  - name: "rwd_tenant2"
+    get: true
+    set: true
+    del: true
+    namespace: "tenant2"
+  - name: "r_tenant2"
+    get: true
+    set: false
+    del: false
+    namespace: "tenant2"
+default_namespaces:
+  - name: "tenant1"
+  - name: "tenant2"
+default_users:
+  - username: "user2"
+    password: "user123"
+    roles: ["rwd_tenant1", "r_tenant2"]
+  - username: "user1"
+    password: "user123"
+    roles: ["rwd_tenant2", "r_tenant2"]

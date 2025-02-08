@@ -18,10 +18,9 @@ func TestNewClient(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		cfg         *KVDBClientConfig
-		shouldError bool
-		errorMsg    string
+		name     string
+		cfg      *KVDBClientConfig
+		errorMsg string
 	}{
 		{
 			name: "Valid configuration",
@@ -29,25 +28,36 @@ func TestNewClient(t *testing.T) {
 				Address:        "localhost:6379",
 				IdleTimeout:    10 * time.Second,
 				MaxMessageSize: "1MB",
+				Username:       "root",
+				Password:       "root",
 			},
-			shouldError: true,
-			errorMsg:    "init tcp client failed: failed to dial: dial tcp [::1]:6379: connect: connection refused",
+			errorMsg: "init tcp client failed: failed to dial: dial tcp [::1]:6379: connect: connection refused",
 		},
 		{
-			name:        "Empty address",
-			cfg:         &KVDBClientConfig{},
-			shouldError: true,
-			errorMsg:    "empty address",
+			name:     "Empty address",
+			cfg:      &KVDBClientConfig{},
+			errorMsg: "empty address",
 		},
 		{
 			name: "Invalid max message size",
 			cfg: &KVDBClientConfig{
 				Address:        "localhost:6379",
 				IdleTimeout:    10 * time.Second,
+				Username:       "root",
+				Password:       "root",
 				MaxMessageSize: "invalid_size",
 			},
-			shouldError: true,
-			errorMsg:    "parse max message size 'invalid_size' failed",
+			errorMsg: "parse max message size 'invalid_size' failed",
+		},
+		{
+			name: "Invalid username or password",
+			cfg: &KVDBClientConfig{
+				Address:        "localhost:6379",
+				IdleTimeout:    10 * time.Second,
+				Username:       "root",
+				MaxMessageSize: "invalid_size",
+			},
+			errorMsg: "username and password must be set",
 		},
 	}
 
@@ -55,14 +65,9 @@ func TestNewClient(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			clientInstance, err := NewClient(tt.cfg)
-			if tt.shouldError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMsg)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, clientInstance)
-			}
+			_, err := NewClient(tt.cfg)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errorMsg)
 		})
 	}
 }

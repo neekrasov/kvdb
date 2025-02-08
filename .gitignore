@@ -10,3 +10,7 @@ vendor
 *.out
 exit
 *.html
+creds
+roles
+key
+client

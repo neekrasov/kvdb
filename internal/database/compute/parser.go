@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	database "github.com/neekrasov/kvdb/internal/database"
+	"github.com/neekrasov/kvdb/internal/database/command"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -18,7 +19,7 @@ func NewParser() *Parser {
 }
 
 // Parse converts the query string into a Command or returns an error for invalid syntax.
-func (p *Parser) Parse(query string) (*database.Command, error) {
+func (p *Parser) Parse(query string) (*command.Command, error) {
 	if query == "" {
 		return nil, fmt.Errorf("%w: query cannot be empty", database.ErrInvalidSyntax)
 	}
@@ -30,8 +31,8 @@ func (p *Parser) Parse(query string) (*database.Command, error) {
 
 	logger.Debug("parsed tokens", zap.Strings("tokens", tokens))
 
-	commandType := database.CommandType(tokens[0])
+	commandType := command.CommandType(tokens[0])
 	args := tokens[1:]
 
-	return database.NewCommand(commandType, args)
+	return command.NewCommand(commandType, args)
 }

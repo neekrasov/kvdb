@@ -2,9 +2,14 @@
 kvdb:
 	go run ./cmd/kvdb
 
+ .PHONY: build_client
+build_client:
+	go build ./cmd/client 
+
  .PHONY: client
 client:
-	go run ./cmd/client
+	$(MAKE) build_client
+	./client --username $(user) --password $(pass)
 
  .PHONY: lint
 lint:

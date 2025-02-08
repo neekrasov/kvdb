@@ -1,4 +1,4 @@
-package storage
+package engine
 
 import (
 	"sync"
@@ -29,16 +29,12 @@ func (e *InMemoryEngine) Set(key, value string) {
 }
 
 // Get - retrieves the value associated with a key.
-func (e *InMemoryEngine) Get(key string) (string, error) {
+func (e *InMemoryEngine) Get(key string) (string, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	value, exists := e.data[key]
-	if !exists {
-		return "", database.ErrKeyNotFound
-	}
-
-	return value, nil
+	val, exists := e.data[key]
+	return val, exists
 }
 
 // Del - removes a key-value pair from memory.

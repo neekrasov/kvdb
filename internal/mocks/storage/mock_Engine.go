@@ -64,7 +64,7 @@ func (_c *Engine_Del_Call) RunAndReturn(run func(string) error) *Engine_Del_Call
 }
 
 // Get provides a mock function with given fields: key
-func (_m *Engine) Get(key string) (string, error) {
+func (_m *Engine) Get(key string) (string, bool) {
 	ret := _m.Called(key)
 
 	if len(ret) == 0 {
@@ -72,8 +72,8 @@ func (_m *Engine) Get(key string) (string, error) {
 	}
 
 	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (string, error)); ok {
+	var r1 bool
+	if rf, ok := ret.Get(0).(func(string) (string, bool)); ok {
 		return rf(key)
 	}
 	if rf, ok := ret.Get(0).(func(string) string); ok {
@@ -82,10 +82,10 @@ func (_m *Engine) Get(key string) (string, error) {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(string) error); ok {
+	if rf, ok := ret.Get(1).(func(string) bool); ok {
 		r1 = rf(key)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(bool)
 	}
 
 	return r0, r1
@@ -109,12 +109,12 @@ func (_c *Engine_Get_Call) Run(run func(key string)) *Engine_Get_Call {
 	return _c
 }
 
-func (_c *Engine_Get_Call) Return(_a0 string, _a1 error) *Engine_Get_Call {
+func (_c *Engine_Get_Call) Return(_a0 string, _a1 bool) *Engine_Get_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Engine_Get_Call) RunAndReturn(run func(string) (string, error)) *Engine_Get_Call {
+func (_c *Engine_Get_Call) RunAndReturn(run func(string) (string, bool)) *Engine_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }

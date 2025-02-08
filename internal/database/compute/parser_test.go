@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/neekrasov/kvdb/internal/database"
+	"github.com/neekrasov/kvdb/internal/database/command"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,25 +18,25 @@ func TestParse_TableDriven(t *testing.T) {
 	tests := []struct {
 		name        string
 		query       string
-		expectedCmd *database.Command
+		expectedCmd *command.Command
 		expectedErr error
 	}{
 		{
 			name:  "Valid Query",
-			query: "SET key value",
-			expectedCmd: &database.Command{
-				Type: "SET",
+			query: fmt.Sprintf("%s key value", command.CommandSET),
+			expectedCmd: &command.Command{
+				Type: command.CommandSET,
 				Args: []string{"key", "value"},
 			},
 		},
 		{
 			name:  "Invalid Query (one token)",
-			query: "SET",
-			expectedCmd: &database.Command{
-				Type: "SET",
+			query: string(command.CommandSET),
+			expectedCmd: &command.Command{
+				Type: command.CommandSET,
 				Args: []string{},
 			},
-			expectedErr: fmt.Errorf("%w: SET command requires exactly 2 arguments", database.ErrInvalidCommand),
+			expectedErr: fmt.Errorf("%w: %s command requires exactly 2 arguments", command.ErrInvalidCommand, command.CommandSET),
 		},
 		{
 			name:        "Empty Query",
@@ -50,7 +51,7 @@ func TestParse_TableDriven(t *testing.T) {
 		{
 			name:        "Invalid Query (unknown command)",
 			query:       "UNKNOWN command value",
-			expectedErr: fmt.Errorf("%w: unrecognized command 'UNKNOWN'", database.ErrInvalidCommand),
+			expectedErr: fmt.Errorf("%w: unrecognized command 'UNKNOWN'", command.ErrInvalidCommand),
 		},
 	}
 

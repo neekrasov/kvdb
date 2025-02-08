@@ -3,10 +3,12 @@ package client
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/chzyer/readline"
+	"github.com/neekrasov/kvdb/internal/database/command"
 	"github.com/neekrasov/kvdb/pkg/client/tcp"
 	conversiontypes "github.com/neekrasov/kvdb/pkg/conversion_types"
 	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
@@ -22,6 +24,8 @@ type Client interface {
 
 // KVDBClientConfig holds the configuration settings for the KVDB client.
 type KVDBClientConfig struct {
+	Username       string        `json:"username"`
+	Password       string        `json:"password"`
 	Address        string        `json:"address"`        // Address of the KVDB server.
 	IdleTimeout    time.Duration `json:"idleTimeout"`    // Idle timeout for the client connection.
 	MaxMessageSize string        `json:"maxMessageSize"` // Maximum message size for client communication.
@@ -36,6 +40,10 @@ type KVDBClient struct {
 func NewClient(cfg *KVDBClientConfig) (*KVDBClient, error) {
 	if cfg.Address == "" {
 		return nil, errors.New("empty address")
+	}
+
+	if cfg.Username == "" || cfg.Password == "" {
+		return nil, errors.New("username and password must be set")
 	}
 
 	tcpClientOpts := make([]tcp.ClientOption, 0)
@@ -54,6 +62,17 @@ func NewClient(cfg *KVDBClientConfig) (*KVDBClient, error) {
 	client, err := tcp.NewClient(cfg.Address, tcpClientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("init tcp client failed: %w", err)
+	}
+
+	cmd := fmt.Sprintf("%s %s %s", command.CommandAUTH, cfg.Username, cfg.Password)
+	resBytes, err := client.Send([]byte(cmd))
+	if err != nil {
+		return nil, err
+	}
+
+	resString := string(resBytes)
+	if strings.Contains(resString, "error:") {
+		return nil, errors.New(resString)
 	}
 
 	return &KVDBClient{client: client}, nil

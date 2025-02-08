@@ -3,7 +3,8 @@
 package mocks
 
 import (
-	database "github.com/neekrasov/kvdb/internal/database"
+	command "github.com/neekrasov/kvdb/internal/database/command"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -21,23 +22,23 @@ func (_m *Parser) EXPECT() *Parser_Expecter {
 }
 
 // Parse provides a mock function with given fields: query
-func (_m *Parser) Parse(query string) (*database.Command, error) {
+func (_m *Parser) Parse(query string) (*command.Command, error) {
 	ret := _m.Called(query)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Parse")
 	}
 
-	var r0 *database.Command
+	var r0 *command.Command
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*database.Command, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*command.Command, error)); ok {
 		return rf(query)
 	}
-	if rf, ok := ret.Get(0).(func(string) *database.Command); ok {
+	if rf, ok := ret.Get(0).(func(string) *command.Command); ok {
 		r0 = rf(query)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*database.Command)
+			r0 = ret.Get(0).(*command.Command)
 		}
 	}
 
@@ -68,12 +69,12 @@ func (_c *Parser_Parse_Call) Run(run func(query string)) *Parser_Parse_Call {
 	return _c
 }
 
-func (_c *Parser_Parse_Call) Return(_a0 *database.Command, _a1 error) *Parser_Parse_Call {
+func (_c *Parser_Parse_Call) Return(_a0 *command.Command, _a1 error) *Parser_Parse_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Parser_Parse_Call) RunAndReturn(run func(string) (*database.Command, error)) *Parser_Parse_Call {
+func (_c *Parser_Parse_Call) RunAndReturn(run func(string) (*command.Command, error)) *Parser_Parse_Call {
 	_c.Call.Return(run)
 	return _c
 }

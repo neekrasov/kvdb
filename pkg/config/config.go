@@ -17,6 +17,30 @@ type (
 		Network NetworkConfig `yaml:"network" json:"network" xml:"network"`
 		Logging LoggingConfig `yaml:"logging" json:"logging" xml:"logging"`
 		WAL     WALConfig     `yaml:"wal" json:"wal" xml:"wal"`
+		Root    RootConfig    `yaml:"root" json:"root" xml:"root"`
+
+		// -- default optional params
+		DefaultRoles      []RoleConfig      `yaml:"default_roles" json:"default_roles" xml:"default_roles"`
+		DefaultNamespaces []NamespaceConfig `yaml:"default_namespaces" json:"default_namespaces" xml:"default_namespaces"`
+		DefaultUsers      []UserConfig      `yaml:"default_users" json:"default_users" xml:"default_users"`
+	}
+
+	RoleConfig struct {
+		Name      string `yaml:"name" json:"name" xml:"name"`
+		Get       bool   `yaml:"get" json:"get" xml:"get"`
+		Set       bool   `yaml:"set" json:"set" xml:"set"`
+		Del       bool   `yaml:"del" json:"del" xml:"del"`
+		Namespace string `yaml:"namespace" json:"namespace" xml:"namespace"`
+	}
+
+	NamespaceConfig struct {
+		Name string `yaml:"name" json:"name" xml:"name"`
+	}
+
+	UserConfig struct {
+		Username string   `yaml:"username" json:"username" xml:"username"`
+		Password string   `yaml:"password" json:"password" xml:"password"`
+		Roles    []string `yaml:"roles" json:"roles" xml:"roles"`
 	}
 
 	EngineConfig struct {
@@ -41,13 +65,12 @@ type (
 		MaxSegmentSize       string        `yaml:"max_segment_size" json:"max_segment_size" xml:"max_segment_size"`
 		DataDir              string        `yaml:"data_directory" json:"data_directory" xml:"data_directory"`
 	}
-)
 
-// wal:
-//   flushing_batch_size: 100
-//   flushing_batch_timeout: "10ms"
-//   max_segment_size: "10MB"
-// 	data_directory: "/data/spider/wal"
+	RootConfig struct {
+		Username string `yaml:"username" json:"username" xml:"username"`
+		Password string `yaml:"password" json:"password" xml:"password"`
+	}
+)
 
 func GetConfig(path string) (Config, error) {
 	configContent, err := GetConfigReader(path)
