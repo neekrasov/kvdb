@@ -8,6 +8,16 @@ import (
 	"go.uber.org/zap"
 )
 
+// CommandType represents the id of a user command.
+type CommandID int
+
+const (
+	UnknownCommandID CommandID = iota
+	SetCommandID
+	GetCommandID
+	DelCommandID
+)
+
 // ErrInvalidCommand indicates an invalid command or incorrect arguments.
 var ErrInvalidCommand = errors.New("invalid command")
 

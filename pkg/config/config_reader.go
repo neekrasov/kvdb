@@ -18,10 +18,10 @@ network:
   address: "127.0.0.1:3223"
   max_connections: 100
   max_message_size: "4KB"
-  idle_timeout: 5m
+  idle_timeout: 20m
 logging:
   level: "info"
-  output: "/log/output.log"
+  output: "./log/output.log"
 `
 
 	var bb bytes.Buffer

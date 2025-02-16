@@ -11,6 +11,12 @@ logging:
 root:
   username: "root"
   password: "root"
+wal:
+  flushing_batch_size: 2
+  flushing_batch_timeout: "10ms"
+  max_segment_size: "1"
+  compression: "gzip"
+  data_directory: "./data/wal"
 default_roles:
   - name: "rwd_tenant1"
     get: true

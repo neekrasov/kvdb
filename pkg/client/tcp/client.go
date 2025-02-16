@@ -59,6 +59,10 @@ func (c *Client) Send(request []byte) ([]byte, error) {
 		return nil, fmt.Errorf("error writing to connection: %w", err)
 	}
 
+	if len(request) >= c.bufferSize/8 {
+		return nil, ErrSmallBufferSize
+	}
+
 	time.Sleep(time.Millisecond)
 	response := make([]byte, c.bufferSize)
 	n, err := c.connection.Read(response)

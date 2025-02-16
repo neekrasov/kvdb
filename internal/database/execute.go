@@ -160,7 +160,9 @@ func (c *Database) set(user *models.User, args []string) string {
 	}
 
 	key := storage.MakeKey(user.Cur.Namespace, args[0])
-	c.storage.Set(key, args[1])
+	if err := c.storage.Set(key, args[1]); err != nil {
+		return wrapError(err)
+	}
 
 	return args[1]
 }
@@ -268,7 +270,6 @@ func (c *Database) roles(user *models.User, args []string) string {
 // me - Executes the ME command to display information about the current user,
 // including their username, roles, namespace, and permissions.
 func (c *Database) me(user *models.User, _ []string) string {
-	fmt.Println(user.Cur)
 	return fmt.Sprintf(
 		"user: '%s', roles: '%s', ns: '%s', perms: '%s'",
 		user.Username, strings.Join(user.Roles, " "),
@@ -331,7 +332,6 @@ func (c *Database) setNamespace(user *models.User, args []string) string {
 	}
 
 	if user.IsAdmin(c.cfg) {
-		hasAccess = true
 		role = &models.Role{
 			Get: true, Set: true, Del: true,
 			Namespace: namespace,

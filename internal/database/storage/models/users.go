@@ -12,6 +12,6 @@ type User struct {
 }
 
 // IsAdmin - Checks if the user is an admin by comparing their username and password with the system's root configuration.
-func (u *User) IsAdmin(cfg config.RootConfig) bool {
+func (u *User) IsAdmin(cfg *config.RootConfig) bool {
 	return u.Username == cfg.Username && u.Password == cfg.Password
 }

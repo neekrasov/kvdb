@@ -120,8 +120,21 @@ func (_c *Storage_Get_Call) RunAndReturn(run func(string) (string, error)) *Stor
 }
 
 // Set provides a mock function with given fields: key, value
-func (_m *Storage) Set(key string, value string) {
-	_m.Called(key, value)
+func (_m *Storage) Set(key string, value string) error {
+	ret := _m.Called(key, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Set")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(key, value)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Storage_Set_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Set'
@@ -143,12 +156,12 @@ func (_c *Storage_Set_Call) Run(run func(key string, value string)) *Storage_Set
 	return _c
 }
 
-func (_c *Storage_Set_Call) Return() *Storage_Set_Call {
-	_c.Call.Return()
+func (_c *Storage_Set_Call) Return(_a0 error) *Storage_Set_Call {
+	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Storage_Set_Call) RunAndReturn(run func(string, string)) *Storage_Set_Call {
+func (_c *Storage_Set_Call) RunAndReturn(run func(string, string) error) *Storage_Set_Call {
 	_c.Call.Return(run)
 	return _c
 }

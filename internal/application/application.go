@@ -10,6 +10,10 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	"github.com/neekrasov/kvdb/internal/database/storage/engine"
 	"github.com/neekrasov/kvdb/internal/database/storage/models"
+	"github.com/neekrasov/kvdb/internal/database/storage/wal"
+	"github.com/neekrasov/kvdb/internal/database/storage/wal/compressor"
+	"github.com/neekrasov/kvdb/internal/database/storage/wal/filesystem"
+	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
 	"github.com/neekrasov/kvdb/pkg/config"
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -33,9 +37,29 @@ func New(cfg *config.Config) *Application {
 func (a *Application) Start(ctx context.Context) error {
 	logger.InitLogger(a.cfg.Logging.Level, a.cfg.Logging.Output)
 
-	parser := compute.NewParser()
-	engine := engine.NewInMemoryEngine()
-	dstorage := storage.NewStorage(engine)
+	engine, err := initEngine(a.cfg.Engine)
+	if err != nil {
+		return err
+	}
+
+	wal, err := initWAL(a.cfg.WAL)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := wal.Close(); err != nil {
+			logger.Debug("failed to close wal", zap.Error(err))
+		}
+	}()
+
+	if wal != nil {
+		wal.Start(ctx)
+	}
+
+	dstorage, err := storage.NewStorage(engine, storage.WithWALOpt(wal))
+	if err != nil {
+		return err
+	}
 	usersStorage, err := initUserStorage(engine, a.cfg)
 	if err != nil {
 		return err
@@ -44,7 +68,6 @@ func (a *Application) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	namespaceStorage, err := initNamespacesStorage(engine, a.cfg.DefaultNamespaces)
 	if err != nil {
 		return err
@@ -72,8 +95,7 @@ func (a *Application) Start(ctx context.Context) error {
 		tcpServerOpts = append(tcpServerOpts, tcp.WithServerBufferSize(uint(size)))
 	}
 
-	database := database.New(
-		parser, dstorage, usersStorage, namespaceStorage,
+	database := database.New(compute.NewParser(), dstorage, usersStorage, namespaceStorage,
 		rolesStorage, storage.NewSessionStorage(), a.cfg.Root)
 	server := tcp.NewServer(database, tcpServerOpts...)
 	if err := server.Start(ctx, a.cfg.Network.Address); err != nil {
@@ -83,7 +105,15 @@ func (a *Application) Start(ctx context.Context) error {
 	return nil
 }
 
-func initRolesStorage(engine *engine.InMemoryEngine, cfg *config.Config) (*storage.RolesStorage, error) {
+func initEngine(cfg *config.EngineConfig) (*engine.Engine, error) {
+	if cfg == nil {
+		return nil, errors.New("empty engine config")
+	}
+
+	return engine.New(engine.WithPartitionNum(cfg.PartitionNum)), nil
+}
+
+func initRolesStorage(engine *engine.Engine, cfg *config.Config) (*storage.RolesStorage, error) {
 	storage := storage.NewRolesStorage(engine)
 	err := storage.Save(&models.Role{
 		Name: models.RootRoleName,
@@ -139,7 +169,7 @@ func initRolesStorage(engine *engine.InMemoryEngine, cfg *config.Config) (*stora
 }
 
 func initUserStorage(
-	engine *engine.InMemoryEngine,
+	engine *engine.Engine,
 	cfg *config.Config,
 ) (*storage.UsersStorage, error) {
 	storage := storage.NewUsersStorage(engine)
@@ -203,7 +233,7 @@ func initUserStorage(
 	return storage, nil
 }
 
-func initNamespacesStorage(engine *engine.InMemoryEngine, defaultNamespaces []config.NamespaceConfig) (*storage.NamespaceStorage, error) {
+func initNamespacesStorage(engine *engine.Engine, defaultNamespaces []config.NamespaceConfig) (*storage.NamespaceStorage, error) {
 	storage := storage.NewNamespaceStorage(engine)
 	err := storage.Save(models.DefaultNameSpace)
 	if err != nil {
@@ -229,4 +259,37 @@ func initNamespacesStorage(engine *engine.InMemoryEngine, defaultNamespaces []co
 	}
 
 	return storage, nil
+}
+
+func initWAL(cfg *config.WALConfig) (*wal.WAL, error) {
+	if cfg == nil {
+		return nil, nil
+	}
+
+	segmentStorage, err := segment.NewFileSegmentStorage(
+		new(filesystem.LocalFileSystem), cfg.DataDir)
+	if err != nil {
+		return nil, err
+	}
+
+	segmentManagerOpts := make([]wal.FileSegmentManagerOpt, 0)
+	if cfg.MaxSegmentSize != "" {
+		size, err := sizeparser.ParseSize(cfg.MaxSegmentSize)
+		if err != nil {
+			return nil, err
+		}
+
+		segmentManagerOpts = append(segmentManagerOpts, wal.WithMaxSegmentSize(size))
+	}
+	if cfg.Compression == "gzip" {
+		segmentManagerOpts = append(segmentManagerOpts, wal.WithCompressor(new(compressor.GzipCompressor)))
+	}
+
+	segmentManager, err := wal.NewFileSegmentManager(
+		segmentStorage, segmentManagerOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return wal.NewWAL(segmentManager, cfg.FlushingBatchSize, cfg.FlushingBatchTimeout), nil
 }

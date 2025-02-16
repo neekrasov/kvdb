@@ -13,11 +13,11 @@ import (
 
 type (
 	Config struct {
-		Engine  EngineConfig  `yaml:"engine" json:"engine" xml:"engine"`
-		Network NetworkConfig `yaml:"network" json:"network" xml:"network"`
-		Logging LoggingConfig `yaml:"logging" json:"logging" xml:"logging"`
-		WAL     WALConfig     `yaml:"wal" json:"wal" xml:"wal"`
-		Root    RootConfig    `yaml:"root" json:"root" xml:"root"`
+		Engine  *EngineConfig  `yaml:"engine" json:"engine" xml:"engine"`
+		Network *NetworkConfig `yaml:"network" json:"network" xml:"network"`
+		Logging *LoggingConfig `yaml:"logging" json:"logging" xml:"logging"`
+		WAL     *WALConfig     `yaml:"wal" json:"wal" xml:"wal"`
+		Root    *RootConfig    `yaml:"root" json:"root" xml:"root"`
 
 		// -- default optional params
 		DefaultRoles      []RoleConfig      `yaml:"default_roles" json:"default_roles" xml:"default_roles"`
@@ -44,6 +44,11 @@ type (
 	}
 
 	EngineConfig struct {
+		Type         string `yaml:"type" json:"type" xml:"type"`
+		PartitionNum int    `yaml:"partition_num" json:"partition_num" xml:"partition_num"`
+	}
+
+	LRUConfig struct {
 		Type string `yaml:"type" json:"type" xml:"type"`
 	}
 
@@ -63,6 +68,7 @@ type (
 		FlushingBatchSize    int           `yaml:"flushing_batch_size" json:"flushing_batch_size" xml:"flushing_batch_size"`
 		FlushingBatchTimeout time.Duration `yaml:"flushing_batch_timeout" json:"flushing_batch_timeout" xml:"flushing_batch_timeout"`
 		MaxSegmentSize       string        `yaml:"max_segment_size" json:"max_segment_size" xml:"max_segment_size"`
+		Compression          string        `yaml:"compression" json:"compression" xml:"compression"`
 		DataDir              string        `yaml:"data_directory" json:"data_directory" xml:"data_directory"`
 	}
 
@@ -103,7 +109,7 @@ func ParseConfig(input io.ReadCloser) (Config, error) {
 func yamlParser(input io.Reader, config *Config) error {
 	decoder := yaml.NewDecoder(input)
 	if err := decoder.Decode(config); err != nil {
-		return fmt.Errorf("cant decode config. Invalid YAML: %w", err)
+		return fmt.Errorf("cant decode yaml config: %w", err)
 	}
 
 	return nil
@@ -112,7 +118,7 @@ func yamlParser(input io.Reader, config *Config) error {
 func jsonParser(input io.Reader, config *Config) error {
 	decoder := json.NewDecoder(input)
 	if err := decoder.Decode(config); err != nil {
-		return fmt.Errorf("cant decode config. Invalid JSON: %w", err)
+		return fmt.Errorf("cant decode json config: %w", err)
 	}
 
 	return nil

@@ -13,6 +13,7 @@ import (
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDatabase_HandleQuery(t *testing.T) {
@@ -66,7 +67,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
 				p.On("Parse", "set key value").Return(
 					&command.Command{Type: command.CommandSET, Args: []string{"key", "value"}}, nil).Once()
-				s.On("Set", mock.Anything, mock.Anything).Return()
+				s.On("Set", mock.Anything, mock.Anything).Return(nil).Once()
 			},
 		},
 		{
@@ -96,7 +97,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			expected: "value",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
 				p.On("Parse", "set key value").Return(&command.Command{Type: command.CommandSET, Args: []string{"key", "value"}}, nil).Once()
-				s.On("Set", "default:key", "value").Return().Once()
+				s.On("Set", "default:key", "value").Return(nil).Once()
 			},
 		},
 		{
@@ -224,7 +225,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				mockNamespaceStorage,
 				mockRolesStorage,
 				sessionStorage,
-				config.RootConfig{Username: "admin"},
+				&config.RootConfig{Username: "admin"},
 			)
 
 			tt.prepareMocks(
@@ -330,7 +331,9 @@ func TestDatabase_Logout(t *testing.T) {
 	}
 
 	user := &models.User{Username: "username", Token: "token"}
-	mockSessionStorage.Create(user.Username)
+	val, err := mockSessionStorage.Create(user.Username)
+	require.NotEmpty(t, val)
+	require.NoError(t, err)
 
 	result := db.Logout(user, []string{})
 	assert.Equal(t, "OK", result)

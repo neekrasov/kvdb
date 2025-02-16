@@ -80,7 +80,8 @@ func NewClient(cfg *KVDBClientConfig) (*KVDBClient, error) {
 
 // Send sends a query to the KVDB server and returns the result or an error.
 func (k *KVDBClient) Send(query string) (string, error) {
-	resBytes, err := k.client.Send([]byte(query))
+	queryBytes := []byte(query)
+	resBytes, err := k.client.Send(queryBytes)
 	if err != nil {
 		return "", err
 	}
@@ -117,6 +118,10 @@ func (k *KVDBClient) CLI(rl *readline.Instance) error {
 			return nil
 		}
 
+		if len(query) == 0 {
+			continue
+		}
+
 		resBytes, err := k.client.Send([]byte(query))
 		if err != nil {
 			if errors.Is(err, syscall.EPIPE) ||
@@ -125,9 +130,10 @@ func (k *KVDBClient) CLI(rl *readline.Instance) error {
 				return err
 			}
 
-			if _, err = rl.Write([]byte(fmt.Sprintf("failed to send query: %s", err.Error()))); err != nil {
+			if _, err = rl.Write([]byte(fmt.Sprintf("error: sending query failed: %s\n", err.Error()))); err != nil {
 				return errors.Join(ErrWriteLineFailed, err)
 			}
+
 			continue
 		}
 

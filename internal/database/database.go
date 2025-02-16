@@ -26,7 +26,7 @@ type Parser interface {
 // Engine defines the interface for storing, retrieving, and deleting key-value pairs.
 type Storage interface {
 	// Set stores a value for a given key.
-	Set(key, value string)
+	Set(key, value string) error
 	// Get retrieves the value associated with a given key.
 	Get(key string) (string, error)
 	// Del removes a key and its value from the storage.
@@ -107,7 +107,7 @@ type Database struct {
 	namespaceStorage NamespacesStorage
 	rolesStorage     RolesStorage
 	sessions         SessionStorage
-	cfg              config.RootConfig
+	cfg              *config.RootConfig
 }
 
 // New creates and initializes a new instance of Database.
@@ -117,7 +117,7 @@ func New(
 	namespaceStorage NamespacesStorage,
 	rolesStorage RolesStorage,
 	sessions SessionStorage,
-	cfg config.RootConfig,
+	cfg *config.RootConfig,
 ) *Database {
 	return &Database{
 		parser:           parser,

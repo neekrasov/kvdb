@@ -32,7 +32,7 @@ func TestModels(t *testing.T) {
 
 	})
 	t.Run("IsAdmin", func(t *testing.T) {
-		cfg := config.RootConfig{Username: "admin", Password: "password"}
+		cfg := &config.RootConfig{Username: "admin", Password: "password"}
 		user := models.User{Username: "admin", Password: "password"}
 		assert.True(t, user.IsAdmin(cfg))
 	})

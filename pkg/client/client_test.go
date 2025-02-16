@@ -169,7 +169,7 @@ func TestCLI(t *testing.T) {
 			input:        "ping\nexit\n",
 			mockSendResp: nil,
 			mockSendErr:  errors.New("some network error"),
-			expectedOut:  "failed to send query: some network error",
+			expectedOut:  "error: sending query failed: some network error\n",
 			expectedErr:  nil,
 		},
 		{
@@ -196,6 +196,7 @@ func TestCLI(t *testing.T) {
 			var output MockWriter
 			if tt.writer != nil {
 				output = tt.writer
+				_ = output.String()
 			} else {
 				output = new(bytes.Buffer)
 			}

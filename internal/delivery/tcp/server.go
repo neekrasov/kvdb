@@ -58,7 +58,6 @@ func (s *Server) Start(ctx context.Context, address string) error {
 	if err != nil {
 		return fmt.Errorf("failed to start TCP server: %w", err)
 	}
-	fmt.Println("LISTEN", listener.Addr())
 
 	logger.Info("start server listening", zap.String("addr", address))
 	go func() {

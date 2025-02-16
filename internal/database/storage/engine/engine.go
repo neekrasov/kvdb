@@ -1,51 +1,58 @@
 package engine
 
 import (
-	"sync"
+	"hash/fnv"
 
-	"github.com/neekrasov/kvdb/internal/database"
+	"github.com/neekrasov/kvdb/pkg/logger"
+	"go.uber.org/zap"
 )
 
-// InMemoryEngine is a simple in-memory implementation of Engine
-// It uses a map with a mutex for thread-safe operations.
-type InMemoryEngine struct {
-	data map[string]string
-	mu   sync.RWMutex
+// Engine - abstract data storage engine.
+type Engine struct {
+	partitions []*partitionMap
 }
 
-// NewInMemoryEngine - creates a new instance of InMemoryEngine.
-func NewInMemoryEngine() *InMemoryEngine {
-	return &InMemoryEngine{
-		data: make(map[string]string),
+// New - creates a new instance of Engine.
+func New(options ...Option) *Engine {
+	e := new(Engine)
+
+	for _, option := range options {
+		option(e)
 	}
+
+	if len(e.partitions) == 0 {
+		e.partitions = make([]*partitionMap, 1)
+		e.partitions[0] = newPartMap()
+	}
+
+	return e
 }
 
 // Set - set stores a key-value pair in memory.
-func (e *InMemoryEngine) Set(key, value string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	e.data[key] = value
+func (e *Engine) Set(key, value string) {
+	e.part(key).Set(key, value)
 }
 
 // Get - retrieves the value associated with a key.
-func (e *InMemoryEngine) Get(key string) (string, bool) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-
-	val, exists := e.data[key]
-	return val, exists
+func (e *Engine) Get(key string) (string, bool) {
+	return e.part(key).Get(key)
 }
 
 // Del - removes a key-value pair from memory.
-func (e *InMemoryEngine) Del(key string) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+func (e *Engine) Del(key string) error {
+	return e.part(key).Del(key)
+}
 
-	if _, exists := e.data[key]; !exists {
-		return database.ErrKeyNotFound
+// part - returns the partition for a given key based on hashing.
+func (e *Engine) part(key string) *partitionMap {
+	hash := fnv.New32a()
+	if _, err := hash.Write([]byte(key)); err != nil {
+		logger.Error(
+			"hash key failed",
+			zap.String("key", key),
+			zap.Error(err),
+		)
+		return nil
 	}
-	delete(e.data, key)
-
-	return nil
+	return e.partitions[int(hash.Sum32())%len(e.partitions)]
 }

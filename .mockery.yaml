@@ -6,9 +6,21 @@ filename: "mock_{{.InterfaceName}}.go"
 outpkg: mocks
 dir: internal/mocks/{{.PackageName}}
 packages:
+  github.com/neekrasov/kvdb/internal/database/storage/wal/segment:
+    interfaces:
+      FileSystem:
+      Sizer:
+      DirEntry:
+  github.com/neekrasov/kvdb/internal/database/storage/wal:
+    interfaces:
+      Compressor:
+      SegmentStorage:
+      Segment:
+      SegmentManager:
   github.com/neekrasov/kvdb/internal/database/storage:
     interfaces:
       Engine:
+      WAL:
   github.com/neekrasov/kvdb/internal/database:
     interfaces:
       Parser:

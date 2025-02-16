@@ -58,7 +58,8 @@ func TestServer(t *testing.T) {
 
 	serverAddress := "localhost:22222"
 	go func() {
-		server.Start(ctx, serverAddress)
+		err := server.Start(ctx, serverAddress)
+		require.NoError(t, err)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
