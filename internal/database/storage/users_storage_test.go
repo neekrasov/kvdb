@@ -3,7 +3,7 @@ package storage
 import (
 	"testing"
 
-	"github.com/neekrasov/kvdb/internal/database/storage/models"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/storage"
 	"github.com/neekrasov/kvdb/pkg/gob"
 	"github.com/stretchr/testify/assert"

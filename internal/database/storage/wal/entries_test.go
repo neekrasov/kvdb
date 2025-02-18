@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/neekrasov/kvdb/internal/database/command"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +13,7 @@ import (
 
 func TestLogEntryEncodeDecode(t *testing.T) {
 	entry := wal.LogEntry{
-		Operation: command.CommandID(1),
+		Operation: models.CommandID(1),
 		Args:      []string{"arg1", "arg2"},
 	}
 
@@ -30,7 +30,7 @@ func TestLogEntryEncodeDecode(t *testing.T) {
 }
 
 func TestWriteEntry(t *testing.T) {
-	op := command.CommandID(1)
+	op := models.CommandID(1)
 	args := []string{"arg1", "arg2"}
 	entry := wal.NewWriteEntry(op, args)
 

@@ -1,6 +1,6 @@
 package models
 
-import "github.com/neekrasov/kvdb/pkg/config"
+import "github.com/neekrasov/kvdb/internal/config"
 
 // User - A struct representing a user in the system.
 type User struct {

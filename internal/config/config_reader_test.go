@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/neekrasov/kvdb/pkg/config"
+	"github.com/neekrasov/kvdb/internal/config"
 )
 
 func TestGetConfigReader_FileExists(t *testing.T) {

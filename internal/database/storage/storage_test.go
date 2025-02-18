@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/neekrasov/kvdb/internal/database"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/internal/database/storage"
-	"github.com/neekrasov/kvdb/internal/database/storage/models"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

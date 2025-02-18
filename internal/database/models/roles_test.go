@@ -3,8 +3,8 @@ package models_test
 import (
 	"testing"
 
-	"github.com/neekrasov/kvdb/internal/database/storage/models"
-	"github.com/neekrasov/kvdb/pkg/config"
+	"github.com/neekrasov/kvdb/internal/config"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/stretchr/testify/assert"
 )
 

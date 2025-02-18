@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database/command"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/wal"
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -155,7 +155,7 @@ func TestWAL_Recover(t *testing.T) {
 				}).Return(nil).Once()
 			},
 			applyFunc: func(entry wal.LogEntry) error {
-				assert.Equal(t, command.SetCommandID, entry.Operation)
+				assert.Equal(t, models.SetCommandID, entry.Operation)
 				assert.Equal(t, []string{"key1", "value1"}, entry.Args)
 				return nil
 			},
@@ -184,7 +184,7 @@ func TestWAL_Recover(t *testing.T) {
 				mockSegmentManager.On("ForEach", mock.Anything).Run(func(args mock.Arguments) {
 					action := args.Get(0).(func([]byte) error)
 					entry := wal.LogEntry{
-						Operation: command.SetCommandID,
+						Operation: models.SetCommandID,
 						Args:      []string{"key1", "value1"},
 					}
 					var buffer bytes.Buffer
@@ -205,7 +205,7 @@ func TestWAL_Recover(t *testing.T) {
 				mockSegmentManager.On("ForEach", mock.Anything).Run(func(args mock.Arguments) {
 					action := args.Get(0).(func([]byte) error)
 					entry := wal.LogEntry{
-						Operation: command.SetCommandID,
+						Operation: models.SetCommandID,
 						Args:      []string{"key1", "value1"},
 					}
 					var buffer bytes.Buffer

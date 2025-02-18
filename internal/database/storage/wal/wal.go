@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database/command"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	pkgSync "github.com/neekrasov/kvdb/pkg/sync"
 
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -86,16 +86,16 @@ func (w *WAL) Start(ctx context.Context) {
 
 // Set - push a set operation to the WAL.
 func (w *WAL) Set(key, value string) error {
-	return w.push(command.SetCommandID, []string{key, value})
+	return w.push(models.SetCommandID, []string{key, value})
 }
 
 // Delete - push a delete operation to the WAL.
 func (w *WAL) Del(key string) error {
-	return w.push(command.DelCommandID, []string{key})
+	return w.push(models.DelCommandID, []string{key})
 }
 
 // push - pushes a log entry to the batch.
-func (w *WAL) push(op command.CommandID, args []string) error {
+func (w *WAL) push(op models.CommandID, args []string) error {
 	if w == nil {
 		return nil
 	}

@@ -7,9 +7,11 @@ import (
 	"io"
 	"net"
 	"runtime/debug"
+	"sync/atomic"
 	"time"
 
-	models "github.com/neekrasov/kvdb/internal/database/storage/models"
+	"github.com/neekrasov/kvdb/internal/database"
+	models "github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/neekrasov/kvdb/pkg/sync"
 	"go.uber.org/zap"
@@ -21,16 +23,18 @@ type QueryHandler interface {
 	Logout(user *models.User, args []string) string
 }
 
-// Server - represents a TCP server that handles client connections and processes queries.
+// Server - a TCP server implementation that handles database queries with connection management and user authentication.
 type Server struct {
-	database       QueryHandler    // QueryHandler instance for handling queries.
-	idleTimeout    time.Duration   // Timeout for idle connections.
-	bufferSize     uint            // Maximum size of the read buffer.
-	maxConnections uint            // Maximum number of concurrent connections.
-	semaphore      *sync.Semaphore // Semaphore to limit concurrent connections.
+	database       QueryHandler
+	idleTimeout    time.Duration
+	bufferSize     uint
+	maxConnections uint
+	semaphore      *sync.Semaphore
+
+	activeConnections int32
 }
 
-// NewServer - creates a new Server instance with configurable options.
+// NewServer - creates a new instance of the TCP server.
 func NewServer(database QueryHandler, opts ...ServerOption) *Server {
 	server := &Server{
 		database:   database,
@@ -48,7 +52,7 @@ func NewServer(database QueryHandler, opts ...ServerOption) *Server {
 	return server
 }
 
-// Start - begins listening for incoming TCP connections.
+// Start - Starts the TCP server listening on the specified address.
 func (s *Server) Start(ctx context.Context, address string) error {
 	if address == "" {
 		return errors.New("empty address")
@@ -60,32 +64,40 @@ func (s *Server) Start(ctx context.Context, address string) error {
 	}
 
 	logger.Info("start server listening", zap.String("addr", address))
+
 	go func() {
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				logger.Warn("failed to accept connection", zap.Error(err))
-				return
-			}
-
-			logger.Debug("accept connection", zap.Stringer("remote_addr", conn.RemoteAddr()))
-
-			s.semaphore.Acquire()
-			go func() {
-				defer s.semaphore.Release()
-				s.handleConnection(conn)
-			}()
-		}
+		<-ctx.Done()
+		logger.Info("shutting down server...")
+		listener.Close()
 	}()
 
-	<-ctx.Done()
-	listener.Close()
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) || ctx.Err() != nil {
+				logger.Info("server stopped accepting new connections")
+				return nil
+			}
 
-	return nil
+			logger.Warn("failed to accept connection", zap.Error(err))
+			continue
+		}
+		logger.Debug("accept connection", zap.Stringer("remote_addr", conn.RemoteAddr()))
+
+		s.semaphore.Acquire()
+		atomic.AddInt32(&s.activeConnections, 1)
+		go func() {
+			defer func() {
+				s.semaphore.Release()
+				atomic.AddInt32(&s.activeConnections, -1)
+			}()
+			s.handleConnection(ctx, conn)
+		}()
+	}
 }
 
-// handleConnection - processes an individual client connection.
-func (s *Server) handleConnection(conn net.Conn) {
+// handleConnection - manages a single client connection lifecycle
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	defer func() {
 		if v := recover(); v != nil {
 			logger.Error("captured panic", zap.Any("panic", v), zap.String("stack", string(debug.Stack())))
@@ -96,70 +108,68 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 		logger.Debug("client disconnected", zap.Stringer("address", conn.RemoteAddr()))
-
 	}()
 
 	var user *models.User
 	buffer := make([]byte, s.bufferSize)
 	for {
-		for user == nil {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if user == nil {
+				var err error
+				user, err = s.handleLogin(conn, buffer)
+				if err != nil {
+					return
+				}
+				defer s.database.Logout(user, nil)
+
+				continue
+			}
+
 			n, err := s.read(conn, buffer)
 			if err != nil {
-				logger.Info(err.Error())
 				return
 			}
 
 			query := string(buffer[:n])
+			response := s.database.HandleQuery(user, query)
 
-			user, err = s.database.Login(query)
-			if err != nil {
-				logger.Debug("login failed",
-					zap.Stringer("address", conn.RemoteAddr()),
-					zap.Error(err))
-
-				if _, err := conn.Write([]byte("error: " + err.Error())); err != nil {
-					logger.Warn(
-						"failed to write data",
-						zap.Stringer("address", conn.RemoteAddr()),
-						zap.Error(err),
-					)
-				}
+			if _, err := conn.Write([]byte(response)); err != nil {
+				logger.Warn("failed to write data", zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
 				return
 			}
-			defer s.database.Logout(user, nil)
-
-			if _, err := conn.Write([]byte("OK")); err != nil {
-				logger.Warn(
-					"failed to write data",
-					zap.Stringer("address", conn.RemoteAddr()),
-					zap.Error(err),
-				)
-				return
-			}
-
-			break
-		}
-
-		n, err := s.read(conn, buffer)
-		if err != nil {
-			return
-		}
-
-		response := s.database.HandleQuery(user, string(buffer[:n]))
-		if response == "" {
-			response = "empty result"
-		}
-		if _, err := conn.Write([]byte(response)); err != nil {
-			logger.Warn(
-				"failed to write data",
-				zap.Stringer("address", conn.RemoteAddr()),
-				zap.Error(err),
-			)
-			return
 		}
 	}
 }
 
+// handleLogin - processes user login attempts and authenticates users before allowing query access.
+func (s *Server) handleLogin(conn net.Conn, buffer []byte) (*models.User, error) {
+	n, err := s.read(conn, buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	query := string(buffer[:n])
+	user, err := s.database.Login(query)
+	if err != nil {
+		logger.Debug("login failed", zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
+		if _, err := conn.Write([]byte(database.WrapError(err))); err != nil {
+			logger.Warn("failed to write data", zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
+		}
+		return nil, err
+	}
+
+	if _, err := conn.Write([]byte(database.WrapOK(""))); err != nil {
+		logger.Warn("failed to write data", zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// read - reads data from a connection with timeout handling and buffer overflow protection.
 func (s *Server) read(conn net.Conn, b []byte) (int, error) {
 	if s.idleTimeout != 0 {
 		if err := conn.SetReadDeadline(time.Now().Add(s.idleTimeout)); err != nil {
@@ -167,6 +177,7 @@ func (s *Server) read(conn net.Conn, b []byte) (int, error) {
 			return 0, err
 		}
 	}
+
 	n, err := conn.Read(b)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -184,15 +195,13 @@ func (s *Server) read(conn net.Conn, b []byte) (int, error) {
 
 	if n == int(s.bufferSize) {
 		logger.Warn("buffer overflow", zap.Int("buffer_size_bytes", int(s.bufferSize)))
-		return 0, err
-	}
-
-	if s.idleTimeout != 0 {
-		if err := conn.SetWriteDeadline(time.Now().Add(s.idleTimeout)); err != nil {
-			logger.Warn("failed to set write deadline", zap.Error(err))
-			return 0, err
-		}
+		return 0, errors.New("buffer overflow")
 	}
 
 	return n, nil
+}
+
+// ActiveConnections - returns the current number of active connections atomically.
+func (s *Server) ActiveConnections() int32 {
+	return atomic.LoadInt32(&s.activeConnections)
 }

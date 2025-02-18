@@ -7,7 +7,7 @@ import (
 	"syscall"
 
 	"github.com/neekrasov/kvdb/internal/application"
-	"github.com/neekrasov/kvdb/pkg/config"
+	"github.com/neekrasov/kvdb/internal/config"
 )
 
 func main() {

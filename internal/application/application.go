@@ -5,17 +5,17 @@ import (
 	"errors"
 	"slices"
 
+	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database"
 	"github.com/neekrasov/kvdb/internal/database/compute"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	"github.com/neekrasov/kvdb/internal/database/storage/engine"
-	"github.com/neekrasov/kvdb/internal/database/storage/models"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/compressor"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/filesystem"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
-	"github.com/neekrasov/kvdb/pkg/config"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
 	"go.uber.org/zap"
@@ -95,7 +95,7 @@ func (a *Application) Start(ctx context.Context) error {
 		tcpServerOpts = append(tcpServerOpts, tcp.WithServerBufferSize(uint(size)))
 	}
 
-	database := database.New(compute.NewParser(), dstorage, usersStorage, namespaceStorage,
+	database := database.New(compute.NewParser(initCommandTrie()), dstorage, usersStorage, namespaceStorage,
 		rolesStorage, storage.NewSessionStorage(), a.cfg.Root)
 	server := tcp.NewServer(database, tcpServerOpts...)
 	if err := server.Start(ctx, a.cfg.Network.Address); err != nil {
@@ -292,4 +292,26 @@ func initWAL(cfg *config.WALConfig) (*wal.WAL, error) {
 	}
 
 	return wal.NewWAL(segmentManager, cfg.FlushingBatchSize, cfg.FlushingBatchTimeout), nil
+}
+
+func initCommandTrie() *compute.TrieNode {
+	root := compute.NewTrieNode()
+	root.Insert([]string{"create", "role"}, models.CommandCREATEROLE)
+	root.Insert([]string{"create", "user"}, models.CommandCREATEUSER)
+	root.Insert([]string{"assign", "role"}, models.CommandASSIGNROLE)
+	root.Insert([]string{"delete", "role"}, models.CommandDELETEROLE)
+	root.Insert([]string{"create", "ns"}, models.CommandCREATENAMESPACE)
+	root.Insert([]string{"delete", "ns"}, models.CommandDELETENAMESPACE)
+	root.Insert([]string{"set", "ns"}, models.CommandSETNS)
+	root.Insert([]string{"get"}, models.CommandGET)
+	root.Insert([]string{"set"}, models.CommandSET)
+	root.Insert([]string{"del"}, models.CommandDEL)
+	root.Insert([]string{"login"}, models.CommandAUTH)
+	root.Insert([]string{"users"}, models.CommandUSERS)
+	root.Insert([]string{"me"}, models.CommandME)
+	root.Insert([]string{"roles"}, models.CommandROLES)
+	root.Insert([]string{"ns"}, models.CommandNAMESPACES)
+	root.Insert([]string{"help"}, models.CommandHELP)
+
+	return root
 }

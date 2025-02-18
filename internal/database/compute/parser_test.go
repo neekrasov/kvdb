@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/neekrasov/kvdb/internal/database"
-	"github.com/neekrasov/kvdb/internal/database/command"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,25 +18,25 @@ func TestParse_TableDriven(t *testing.T) {
 	tests := []struct {
 		name        string
 		query       string
-		expectedCmd *command.Command
+		expectedCmd *models.Command
 		expectedErr error
 	}{
 		{
 			name:  "Valid Query",
-			query: fmt.Sprintf("%s key value", command.CommandSET),
-			expectedCmd: &command.Command{
-				Type: command.CommandSET,
+			query: fmt.Sprintf("%s key value", models.CommandSET),
+			expectedCmd: &models.Command{
+				Type: models.CommandSET,
 				Args: []string{"key", "value"},
 			},
 		},
 		{
 			name:  "Invalid Query (one token)",
-			query: string(command.CommandSET),
-			expectedCmd: &command.Command{
-				Type: command.CommandSET,
+			query: string(models.CommandSET),
+			expectedCmd: &models.Command{
+				Type: models.CommandSET,
 				Args: []string{},
 			},
-			expectedErr: fmt.Errorf("%w: %s command requires exactly 2 arguments", command.ErrInvalidCommand, command.CommandSET),
+			expectedErr: fmt.Errorf("%w: %s command requires exactly 2 arguments", models.ErrInvalidCommand, models.CommandSET),
 		},
 		{
 			name:        "Empty Query",
@@ -51,11 +51,11 @@ func TestParse_TableDriven(t *testing.T) {
 		{
 			name:        "Invalid Query (unknown command)",
 			query:       "UNKNOWN command value",
-			expectedErr: fmt.Errorf("%w: unrecognized command 'UNKNOWN'", command.ErrInvalidCommand),
+			expectedErr: fmt.Errorf("%w: unrecognized command", models.ErrInvalidCommand),
 		},
 	}
 
-	parser := NewParser()
+	parser := NewParser(initCommandTrie())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd, err := parser.Parse(tt.query)
@@ -70,4 +70,26 @@ func TestParse_TableDriven(t *testing.T) {
 			}
 		})
 	}
+}
+
+func initCommandTrie() *TrieNode {
+	root := NewTrieNode()
+	root.Insert([]string{"create", "role"}, models.CommandCREATEROLE)
+	root.Insert([]string{"create", "user"}, models.CommandCREATEUSER)
+	root.Insert([]string{"assign", "role"}, models.CommandASSIGNROLE)
+	root.Insert([]string{"delete", "role"}, models.CommandDELETEROLE)
+	root.Insert([]string{"create", "ns"}, models.CommandCREATENAMESPACE)
+	root.Insert([]string{"delete", "ns"}, models.CommandDELETENAMESPACE)
+	root.Insert([]string{"set", "ns"}, models.CommandSETNS)
+	root.Insert([]string{"get"}, models.CommandGET)
+	root.Insert([]string{"set"}, models.CommandSET)
+	root.Insert([]string{"del"}, models.CommandDEL)
+	root.Insert([]string{"login"}, models.CommandAUTH)
+	root.Insert([]string{"users"}, models.CommandUSERS)
+	root.Insert([]string{"me"}, models.CommandME)
+	root.Insert([]string{"roles"}, models.CommandROLES)
+	root.Insert([]string{"ns"}, models.CommandNAMESPACES)
+	root.Insert([]string{"help"}, models.CommandHELP)
+
+	return root
 }

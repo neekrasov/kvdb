@@ -3,10 +3,9 @@ package database
 import (
 	"errors"
 
-	"github.com/neekrasov/kvdb/internal/database/command"
+	"github.com/neekrasov/kvdb/internal/config"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/internal/database/storage"
-	"github.com/neekrasov/kvdb/internal/database/storage/models"
-	"github.com/neekrasov/kvdb/pkg/config"
 )
 
 var (
@@ -20,7 +19,7 @@ var (
 // Parser parses user queries into executable commands.
 type Parser interface {
 	// Parse converts a query string into a Command or returns an error for invalid syntax.
-	Parse(query string) (*command.Command, error)
+	Parse(query string) (*models.Command, error)
 }
 
 // Engine defines the interface for storing, retrieving, and deleting key-value pairs.
@@ -83,9 +82,9 @@ type RolesStorage interface {
 
 // CommandHandler used to execute specific actions based on user input.
 type CommandHandler struct {
-	// Func - The function to execute for the command.
+	// Func - The function to execute for the models.
 	Func func(*models.User, []string) string
-	// AdminOnly - Indicates whether the command can only be executed by an admin.
+	// AdminOnly - Indicates whether the models can only be executed by an admin.
 	AdminOnly bool
 }
 

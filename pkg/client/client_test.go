@@ -1,225 +1,164 @@
-package client
+package client_test
 
 import (
-	"bytes"
+	"context"
 	"errors"
-	"io"
-	"syscall"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/chzyer/readline"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/client"
-	"github.com/neekrasov/kvdb/pkg/client/tcp"
+	"github.com/neekrasov/kvdb/pkg/client"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func TestNewClient(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		cfg      *KVDBClientConfig
-		errorMsg string
-	}{
-		{
-			name: "Valid configuration",
-			cfg: &KVDBClientConfig{
-				Address:        "localhost:6379",
-				IdleTimeout:    10 * time.Second,
-				MaxMessageSize: "1MB",
-				Username:       "root",
-				Password:       "root",
-			},
-			errorMsg: "init tcp client failed: failed to dial: dial tcp [::1]:6379: connect: connection refused",
-		},
-		{
-			name:     "Empty address",
-			cfg:      &KVDBClientConfig{},
-			errorMsg: "empty address",
-		},
-		{
-			name: "Invalid max message size",
-			cfg: &KVDBClientConfig{
-				Address:        "localhost:6379",
-				IdleTimeout:    10 * time.Second,
-				Username:       "root",
-				Password:       "root",
-				MaxMessageSize: "invalid_size",
-			},
-			errorMsg: "parse max message size 'invalid_size' failed",
-		},
-		{
-			name: "Invalid username or password",
-			cfg: &KVDBClientConfig{
-				Address:        "localhost:6379",
-				IdleTimeout:    10 * time.Second,
-				Username:       "root",
-				MaxMessageSize: "invalid_size",
-			},
-			errorMsg: "username and password must be set",
-		},
+func TestNewClient_Success(t *testing.T) {
+	cfg := &client.KVDBClientConfig{
+		Address:              "localhost:8080",
+		Username:             "user",
+		Password:             "pass",
+		MaxReconnectAttempts: 3,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	mockClientFactory := mocks.NewClientFactory(t)
+	mockClient := mocks.NewClient(t)
+	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil)
 
-			_, err := NewClient(tt.cfg)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), tt.errorMsg)
-		})
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+		Return([]byte("OK"), nil)
+
+	kvdbClient, err := client.New(cfg, mockClientFactory)
+	require.NoError(t, err, "NewClient should not return an error")
+	assert.NotNil(t, kvdbClient, "Client should not be nil")
+
+	mockClientFactory.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
+}
+
+func TestNewClient_ConnectionError(t *testing.T) {
+	cfg := &client.KVDBClientConfig{
+		Address:              "localhost:8080",
+		Username:             "user",
+		Password:             "pass",
+		MaxReconnectAttempts: 3,
 	}
+
+	mockClientFactory := mocks.NewClientFactory(t)
+	mockClientFactory.On("Make", cfg.Address, mock.Anything).
+		Return(nil, errors.New("connection failed"))
+
+	_, err := client.New(cfg, mockClientFactory)
+	require.Error(t, err, "NewClient should return an error")
+	assert.Contains(t, err.Error(), "initial connection failed", "Error message should contain 'initial connection failed'")
+
+	mockClientFactory.AssertExpectations(t)
 }
 
-func TestSend(t *testing.T) {
-	mockTCPClient := new(mocks.Client)
-	clientInstance := &KVDBClient{client: mockTCPClient}
+func TestSendWithRetries_Success(t *testing.T) {
+	cfg := &client.KVDBClientConfig{
+		Address:              "localhost:8080",
+		Username:             "user",
+		Password:             "pass",
+		MaxReconnectAttempts: 3,
+	}
 
-	mockTCPClient.On("Send", []byte("GET key")).Return([]byte("value"), nil)
+	mockClientFactory := mocks.NewClientFactory(t)
+	mockClient := mocks.NewClient(t)
 
-	response, err := clientInstance.Send("GET key")
-	assert.NoError(t, err)
-	assert.Equal(t, "value", response)
+	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil)
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+		Return([]byte("OK"), nil)
+
+	kvdbClient, err := client.New(cfg, mockClientFactory)
+	require.NoError(t, err, "NewClient should not return an error")
+
+	mockClient.On("Send", mock.Anything, []byte("GET key")).Return([]byte("value"), nil)
+
+	res, err := kvdbClient.Send(context.Background(), "GET key")
+	require.NoError(t, err, "Send should not return an error")
+	assert.Equal(t, "value", res, "Response should be 'value'")
+
+	mockClientFactory.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
 }
 
-func TestSend_Error(t *testing.T) {
-	mockTCPClient := new(mocks.Client)
-	clientInstance := &KVDBClient{client: mockTCPClient}
+func TestSendWithRetries_MaxReconnects(t *testing.T) {
+	cfg := &client.KVDBClientConfig{
+		Address:              "localhost:8080",
+		Username:             "user",
+		Password:             "pass",
+		MaxReconnectAttempts: 1,
+		ReconnectBaseDelay:   1 * time.Microsecond,
+	}
 
-	sendErr := errors.New("connection error")
-	mockTCPClient.On("Send", []byte("GET key")).Return([]byte{}, sendErr)
+	mockClientFactory := mocks.NewClientFactory(t)
+	mockClient := mocks.NewClient(t)
+	mockClient.On("Close").Return(nil).Once()
+	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil).Once()
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+		Return([]byte("OK"), nil).Once()
 
-	response, err := clientInstance.Send("GET key")
-	assert.Error(t, err)
-	assert.Equal(t, "", response)
-	assert.Equal(t, sendErr, err)
+	kvdbClient, err := client.New(cfg, mockClientFactory)
+	require.NoError(t, err, "NewClient should not return an error")
+	mockClient.On("Send", mock.Anything, []byte("GET key")).Return(nil, errors.New("connection failed")).Once()
+	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil).Once()
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+		Return([]byte("OK"), nil).Once()
+
+	_, err = kvdbClient.Send(context.Background(), "GET key")
+	require.ErrorIs(t, err, client.ErrMaxReconnects)
+
+	mockClientFactory.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
+}
+
+func TestAuthenticationFailure(t *testing.T) {
+	cfg := &client.KVDBClientConfig{
+		Address:  "localhost:8080",
+		Username: "user",
+		Password: "pass",
+	}
+
+	mockClientFactory := mocks.NewClientFactory(t)
+	mockClient := mocks.NewClient(t)
+
+	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil)
+
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+		Return([]byte(models.ErrAuthenticationRequired.Error()), nil)
+
+	_, err := client.New(cfg, mockClientFactory)
+	require.ErrorIs(t, err, client.ErrAuthenticationRequired)
+
+	mockClientFactory.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
 }
 
 func TestClose(t *testing.T) {
-	mockTCPClient := new(mocks.Client)
-	clientInstance := &KVDBClient{client: mockTCPClient}
-
-	mockTCPClient.On("Close").Return(nil)
-
-	err := clientInstance.Close()
-	assert.NoError(t, err)
-}
-
-func TestCloseNilClient(t *testing.T) {
-	clientInstance := &KVDBClient{client: nil}
-	err := clientInstance.Close()
-	assert.NoError(t, err)
-}
-
-func TestCLI(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name         string
-		input        string
-		mockSendResp []byte
-		mockSendErr  error
-		expectedOut  string
-		expectedErr  error
-		writer       MockWriter
-	}{
-		{
-			name:         "normal input",
-			input:        "ping\nexit\n",
-			mockSendResp: []byte("pong"),
-			mockSendErr:  nil,
-			expectedOut:  "pong",
-			expectedErr:  nil,
-		},
-		{
-			name:         "readline interrupt",
-			input:        "\x03",
-			mockSendResp: nil,
-			mockSendErr:  nil,
-			expectedOut:  "",
-			expectedErr:  nil,
-		},
-		{
-			name:         "syscall.EPIPE error",
-			input:        "ping\nexit\n",
-			mockSendResp: nil,
-			mockSendErr:  syscall.EPIPE,
-			expectedOut:  "",
-			expectedErr:  syscall.EPIPE,
-		},
-		{
-			name:         "tcp.ErrTimeout error",
-			input:        "ping\nexit\n",
-			mockSendResp: nil,
-			mockSendErr:  tcp.ErrTimeout,
-			expectedOut:  "",
-			expectedErr:  tcp.ErrTimeout,
-		},
-		{
-			name:         "syscall.ECONNRESET error",
-			input:        "ping\nexit\n",
-			mockSendResp: nil,
-			mockSendErr:  syscall.ECONNRESET,
-			expectedOut:  "",
-			expectedErr:  syscall.ECONNRESET,
-		},
-		{
-			name:         "generic send error",
-			input:        "ping\nexit\n",
-			mockSendResp: nil,
-			mockSendErr:  errors.New("some network error"),
-			expectedOut:  "error: sending query failed: some network error\n",
-			expectedErr:  nil,
-		},
-		{
-			name:         "write error when reading stdin",
-			input:        "ping\nexit\n",
-			mockSendResp: nil,
-			mockSendErr:  nil,
-			writer:       new(mockWriter),
-			expectedErr:  ErrWriteLineFailed,
-		},
+	cfg := &client.KVDBClientConfig{
+		Address:              "localhost:8080",
+		Username:             "user",
+		Password:             "pass",
+		MaxReconnectAttempts: 3,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	mockClientFactory := mocks.NewClientFactory(t)
+	mockClient := mocks.NewClient(t)
+	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil)
 
-			mockTCPClient := new(mocks.Client)
-			clientInstance := &KVDBClient{client: mockTCPClient}
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+		Return([]byte("OK"), nil)
 
-			mockTCPClient.On("Send", []byte("ping")).Return(tt.mockSendResp, tt.mockSendErr)
-			mockTCPClient.On("Close").Return(nil)
+	kvdbClient, err := client.New(cfg, mockClientFactory)
+	require.NoError(t, err, "NewClient should not return an error")
 
-			input := bytes.NewBufferString(tt.input)
-			var output MockWriter
-			if tt.writer != nil {
-				output = tt.writer
-				_ = output.String()
-			} else {
-				output = new(bytes.Buffer)
-			}
+	mockClient.On("Close").Return(nil)
+	err = kvdbClient.Close()
+	require.NoError(t, err, "Close should not return an error")
 
-			rl, err := readline.NewEx(&readline.Config{
-				Prompt:      "$ ",
-				Stdin:       io.NopCloser(input),
-				Stdout:      output,
-				HistoryFile: "",
-			})
-			assert.NoError(t, err)
-			defer rl.Close()
-
-			err = clientInstance.CLI(rl)
-			if tt.expectedErr != nil {
-				assert.ErrorIs(t, err, tt.expectedErr)
-			} else {
-				assert.NoError(t, err)
-			}
-
-			if tt.expectedOut != "" {
-				assert.Contains(t, output.String(), tt.expectedOut)
-			}
-		})
-	}
+	mockClientFactory.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
 }

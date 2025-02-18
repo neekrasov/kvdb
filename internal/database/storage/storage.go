@@ -3,8 +3,7 @@ package storage
 import (
 	"fmt"
 
-	"github.com/neekrasov/kvdb/internal/database/command"
-	"github.com/neekrasov/kvdb/internal/database/storage/models"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
@@ -90,14 +89,14 @@ func MakeKey(namespace, key string) string {
 
 func (s *Storage) applyFunc(entry wal.LogEntry) error {
 	switch entry.Operation {
-	case command.SetCommandID:
+	case models.SetCommandID:
 		s.engine.Set(entry.Args[0], entry.Args[1])
-	case command.DelCommandID:
+	case models.DelCommandID:
 		err := s.engine.Del(entry.Args[0])
 		if err != nil {
 			return fmt.Errorf("apply del (%s) failed: %w", entry.Args[0], err)
 		}
-	case command.UnknownCommandID:
+	case models.UnknownCommandID:
 		return nil
 	default:
 		return fmt.Errorf("unrecognized command (id: %d, args %v)", entry.Operation, entry.Args)

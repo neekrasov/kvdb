@@ -35,3 +35,4 @@ packages:
   github.com/neekrasov/kvdb/pkg/client:
     interfaces:
       Client:
+      ClientFactory:

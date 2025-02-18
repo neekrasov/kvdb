@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/neekrasov/kvdb/internal/database/command"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/wal"
@@ -87,7 +87,7 @@ func TestFileSegmentManager_Write(t *testing.T) {
 		{
 			name: "Success - Write entries to current segment",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(command.SetCommandID, []string{}),
+				wal.NewWriteEntry(models.SetCommandID, []string{}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
@@ -100,7 +100,7 @@ func TestFileSegmentManager_Write(t *testing.T) {
 		{
 			name: "Error - Failed to write to segment",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(command.SetCommandID, []string{}),
+				wal.NewWriteEntry(models.SetCommandID, []string{}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
@@ -158,13 +158,13 @@ func TestFileSegmentManager_Write_WithCompression(t *testing.T) {
 		{
 			name: "Success - Write entries with compression",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(command.SetCommandID, []string{"key", "value"}),
+				wal.NewWriteEntry(models.SetCommandID, []string{"key", "value"}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment, mockCompressor *mocks.Compressor) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
 				mockStorage.EXPECT().Create(1, false).Return(mockSegment, nil)
 				mockSegment.EXPECT().ID().Return(1)
-				mockSegment.EXPECT().Size().Return(4 << 20)
+				mockSegment.EXPECT().Size().Return(4 << 10)
 				mockSegment.EXPECT().Close().Return(nil)
 
 				mockStorage.EXPECT().Open(1).Return(mockSegment, nil)

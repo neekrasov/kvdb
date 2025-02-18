@@ -13,7 +13,7 @@ import (
 )
 
 // defaultMaxSegmentSize - is 4KB.
-const defaultMaxSegmentSize = 4 << 20
+const defaultMaxSegmentSize = 4 << 10
 
 type (
 	// Compressor - interface for data compression and decompression.

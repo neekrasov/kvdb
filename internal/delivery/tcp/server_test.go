@@ -2,13 +2,14 @@ package tcp
 
 import (
 	"context"
+	"io"
 	"net"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/neekrasov/kvdb/internal/database"
-	models "github.com/neekrasov/kvdb/internal/database/storage/models"
+	models "github.com/neekrasov/kvdb/internal/database/models"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/tcp"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/stretchr/testify/assert"
@@ -82,7 +83,7 @@ func TestServer(t *testing.T) {
 		clientErr = conn.Close()
 		require.NoError(t, clientErr)
 
-		assert.Equal(t, "OK", string(buffer[:size]))
+		assert.Equal(t, "[ok]", string(buffer[:size]))
 	}()
 
 	go func() {
@@ -101,7 +102,7 @@ func TestServer(t *testing.T) {
 		clientErr = conn.Close()
 		require.NoError(t, clientErr)
 
-		assert.Equal(t, "OK", string(buffer[:size]))
+		assert.Equal(t, "[ok]", string(buffer[:size]))
 	}()
 
 	go func() {
@@ -120,7 +121,9 @@ func TestServer(t *testing.T) {
 		buffer := make([]byte, 1024)
 		_, clientErr = conn.Read(buffer)
 		require.NoError(t, conn.Close())
-		require.NoError(t, clientErr)
+		require.ErrorIs(t, clientErr, io.EOF)
+
+		require.Equal(t, server.ActiveConnections(), int32(2))
 	}()
 
 	wg.Wait()

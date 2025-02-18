@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/neekrasov/kvdb/internal/database/storage/models"
+	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/pkg/gob"
 )
 
