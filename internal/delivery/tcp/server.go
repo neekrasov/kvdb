@@ -10,22 +10,25 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database"
-	models "github.com/neekrasov/kvdb/internal/database/models"
+	models "github.com/neekrasov/kvdb/internal/database/identity/models"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/neekrasov/kvdb/pkg/sync"
 	"go.uber.org/zap"
 )
 
-type QueryHandler interface {
-	HandleQuery(user *models.User, query string) string
-	Login(query string) (*models.User, error)
-	Logout(user *models.User, args []string) string
+type contextKey struct{}
+
+var ConnectionStateKey = contextKey{}
+
+type ConnectionState struct {
+	User *models.User
 }
+
+type Handler = func(ctx context.Context, request []byte) []byte
 
 // Server - a TCP server implementation that handles database queries with connection management and user authentication.
 type Server struct {
-	database       QueryHandler
+	listener       net.Listener
 	idleTimeout    time.Duration
 	bufferSize     uint
 	maxConnections uint
@@ -35,9 +38,19 @@ type Server struct {
 }
 
 // NewServer - creates a new instance of the TCP server.
-func NewServer(database QueryHandler, opts ...ServerOption) *Server {
+func NewServer(address string, opts ...ServerOption) (*Server, error) {
+	if address == "" {
+		return nil, errors.New("empty address")
+	}
+
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start TCP server: %w", err)
+	}
+	logger.Info("start server listening", zap.String("addr", address))
+
 	server := &Server{
-		database:   database,
+		listener:   listener,
 		bufferSize: defaultBufferSize,
 	}
 
@@ -49,55 +62,43 @@ func NewServer(database QueryHandler, opts ...ServerOption) *Server {
 		server.semaphore = sync.NewSemaphore(mcons)
 	}
 
-	return server
+	return server, nil
 }
 
 // Start - Starts the TCP server listening on the specified address.
-func (s *Server) Start(ctx context.Context, address string) error {
-	if address == "" {
-		return errors.New("empty address")
-	}
-
-	listener, err := net.Listen("tcp", address)
-	if err != nil {
-		return fmt.Errorf("failed to start TCP server: %w", err)
-	}
-
-	logger.Info("start server listening", zap.String("addr", address))
-
+func (s *Server) Start(ctx context.Context, handler Handler) {
 	go func() {
-		<-ctx.Done()
-		logger.Info("shutting down server...")
-		listener.Close()
+		for {
+			conn, err := s.listener.Accept()
+			if err != nil {
+				if errors.Is(err, net.ErrClosed) || ctx.Err() != nil {
+					logger.Info("server stopped accepting new connections")
+					return
+				}
+
+				logger.Warn("failed to accept connection", zap.Error(err))
+				continue
+			}
+			logger.Debug("accept connection", zap.Stringer("remote_addr", conn.RemoteAddr()))
+
+			s.semaphore.Acquire()
+			atomic.AddInt32(&s.activeConnections, 1)
+			go func() {
+				defer func() {
+					s.semaphore.Release()
+					atomic.AddInt32(&s.activeConnections, -1)
+				}()
+
+				s.handleConnection(ctx, conn, handler)
+			}()
+		}
 	}()
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			if errors.Is(err, net.ErrClosed) || ctx.Err() != nil {
-				logger.Info("server stopped accepting new connections")
-				return nil
-			}
-
-			logger.Warn("failed to accept connection", zap.Error(err))
-			continue
-		}
-		logger.Debug("accept connection", zap.Stringer("remote_addr", conn.RemoteAddr()))
-
-		s.semaphore.Acquire()
-		atomic.AddInt32(&s.activeConnections, 1)
-		go func() {
-			defer func() {
-				s.semaphore.Release()
-				atomic.AddInt32(&s.activeConnections, -1)
-			}()
-			s.handleConnection(ctx, conn)
-		}()
-	}
+	<-ctx.Done()
 }
 
 // handleConnection - manages a single client connection lifecycle
-func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn, handler Handler) {
 	defer func() {
 		if v := recover(); v != nil {
 			logger.Error("captured panic", zap.Any("panic", v), zap.String("stack", string(debug.Stack())))
@@ -110,63 +111,29 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 		logger.Debug("client disconnected", zap.Stringer("address", conn.RemoteAddr()))
 	}()
 
-	var user *models.User
 	buffer := make([]byte, s.bufferSize)
+
+	state := &ConnectionState{}
+	ctx = context.WithValue(ctx, ConnectionStateKey, state)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			if user == nil {
-				var err error
-				user, err = s.handleLogin(conn, buffer)
-				if err != nil {
-					return
-				}
-				defer s.database.Logout(user, nil)
-
-				continue
-			}
-
-			n, err := s.read(conn, buffer)
-			if err != nil {
-				return
-			}
-
-			query := string(buffer[:n])
-			response := s.database.HandleQuery(user, query)
-
-			if _, err := conn.Write([]byte(response)); err != nil {
-				logger.Warn("failed to write data", zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
-				return
-			}
 		}
-	}
-}
 
-// handleLogin - processes user login attempts and authenticates users before allowing query access.
-func (s *Server) handleLogin(conn net.Conn, buffer []byte) (*models.User, error) {
-	n, err := s.read(conn, buffer)
-	if err != nil {
-		return nil, err
-	}
+		n, err := s.read(conn, buffer)
+		if err != nil {
+			return
+		}
 
-	query := string(buffer[:n])
-	user, err := s.database.Login(query)
-	if err != nil {
-		logger.Debug("login failed", zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
-		if _, err := conn.Write([]byte(database.WrapError(err))); err != nil {
+		resp := handler(ctx, buffer[:n])
+		if _, err := conn.Write(resp); err != nil {
 			logger.Warn("failed to write data", zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
+			return
 		}
-		return nil, err
-	}
 
-	if _, err := conn.Write([]byte(database.WrapOK(""))); err != nil {
-		logger.Warn("failed to write data", zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
-		return nil, err
 	}
-
-	return user, nil
 }
 
 // read - reads data from a connection with timeout handling and buffer overflow protection.
@@ -204,4 +171,12 @@ func (s *Server) read(conn net.Conn, b []byte) (int, error) {
 // ActiveConnections - returns the current number of active connections atomically.
 func (s *Server) ActiveConnections() int32 {
 	return atomic.LoadInt32(&s.activeConnections)
+}
+
+func (s *Server) Close() error {
+	if s.listener != nil {
+		return s.listener.Close()
+	}
+
+	return nil
 }

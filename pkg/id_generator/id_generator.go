@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 )
 
-// IDGenerator - A struct for generating unique IDs using an atomic counter.
+// IDGenerator - struct for generating unique IDs using an atomic counter.
 type IDGenerator struct {
 	counter atomic.Int64
 }

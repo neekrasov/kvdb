@@ -79,7 +79,7 @@ func (_c *SegmentStorage_Create_Call) RunAndReturn(run func(int, bool) (wal.Segm
 	return _c
 }
 
-// List provides a mock function with given fields:
+// List provides a mock function with no fields
 func (_m *SegmentStorage) List() ([]int, error) {
 	ret := _m.Called()
 

@@ -2,7 +2,8 @@ package sizeparser
 
 import "errors"
 
-// ParseSize parses a size string (e.g., "10GB", "5MB") and converts it to an integer value in bytes.
+// ParseSize - parses a size string (e.g., "10GB", "5MB")
+// and converts it to an integer value in bytes.
 func ParseSize(text string) (int, error) {
 	if len(text) == 0 || text[0] < '0' || text[0] > '9' {
 		return 0, errors.New("incorrect size")

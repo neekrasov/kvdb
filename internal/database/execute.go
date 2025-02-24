@@ -6,10 +6,18 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database/compute"
+	"github.com/neekrasov/kvdb/internal/database/identity"
+	"github.com/neekrasov/kvdb/internal/database/identity/models"
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
+)
+
+var (
+	ErrInvalidOperation       = errors.New("invalid operation")
+	ErrAuthenticationRequired = errors.New("authentication required")
+	ErrPermissionDenied       = errors.New("permission denied")
 )
 
 // WrapError - wrapping error with prefix '[error]'.
@@ -43,30 +51,30 @@ func (c *Database) HandleQuery(user *models.User, query string) string {
 		zap.Stringer("cmd_type", cmd.Type),
 		zap.Strings("args", cmd.Args))
 
-	handler, ok := map[models.CommandType]CommandHandler{
-		models.CommandCREATEUSER:      {Func: c.createUser, AdminOnly: true},
-		models.CommandASSIGNROLE:      {Func: c.assignRole, AdminOnly: true},
-		models.CommandCREATEROLE:      {Func: c.createRole, AdminOnly: true},
-		models.CommandDELETEROLE:      {Func: c.Delete, AdminOnly: true},
-		models.CommandROLES:           {Func: c.roles, AdminOnly: true},
-		models.CommandUSERS:           {Func: c.users, AdminOnly: true},
-		models.CommandCREATENAMESPACE: {Func: c.createNS, AdminOnly: true},
-		models.CommandDELETENAMESPACE: {Func: c.deleteNS, AdminOnly: true},
-		models.CommandNAMESPACES:      {Func: c.ns, AdminOnly: true},
-		models.CommandHELP:            {Func: c.help},
-		models.CommandSETNS:           {Func: c.setNamespace},
-		models.CommandME:              {Func: c.me},
-		models.CommandGET:             {Func: c.get},
-		models.CommandSET:             {Func: c.set},
-		models.CommandDEL:             {Func: c.del},
+	handler, ok := map[compute.CommandType]CommandHandler{
+		compute.CommandCREATEUSER:      {Func: c.createUser, AdminOnly: true},
+		compute.CommandASSIGNROLE:      {Func: c.assignRole, AdminOnly: true},
+		compute.CommandCREATEROLE:      {Func: c.createRole, AdminOnly: true},
+		compute.CommandDELETEROLE:      {Func: c.Delete, AdminOnly: true},
+		compute.CommandROLES:           {Func: c.roles, AdminOnly: true},
+		compute.CommandUSERS:           {Func: c.users, AdminOnly: true},
+		compute.CommandCREATENAMESPACE: {Func: c.createNS, AdminOnly: true},
+		compute.CommandDELETENAMESPACE: {Func: c.deleteNS, AdminOnly: true},
+		compute.CommandNAMESPACES:      {Func: c.ns, AdminOnly: true},
+		compute.CommandHELP:            {Func: c.help},
+		compute.CommandSETNS:           {Func: c.setNamespace},
+		compute.CommandME:              {Func: c.me},
+		compute.CommandGET:             {Func: c.get},
+		compute.CommandSET:             {Func: c.set},
+		compute.CommandDEL:             {Func: c.del},
 	}[cmd.Type]
 
 	if !ok {
-		return WrapError(models.ErrInvalidOperation)
+		return WrapError(ErrInvalidOperation)
 	}
 
 	if handler.AdminOnly && user.Username != c.cfg.Username {
-		return WrapError(models.ErrPermissionDenied)
+		return WrapError(ErrPermissionDenied)
 	}
 
 	oldUsr := user
@@ -100,7 +108,7 @@ func (c *Database) Login(query string) (*models.User, error) {
 	}
 
 	var user *models.User
-	if cmd.Type == models.CommandAUTH {
+	if cmd.Type == compute.CommandAUTH {
 		user, err = c.userStorage.Authenticate(cmd.Args[0], cmd.Args[1])
 		if err != nil {
 			return nil, err
@@ -108,7 +116,7 @@ func (c *Database) Login(query string) (*models.User, error) {
 	}
 
 	if user == nil {
-		return nil, models.ErrAuthenticationRequired
+		return nil, ErrAuthenticationRequired
 	}
 
 	token, err := c.sessions.Create(user.Username)
@@ -133,7 +141,7 @@ func (c *Database) Logout(user *models.User, args []string) string {
 // del - executes the del command to remove a key from the storage
 func (c *Database) del(user *models.User, args []string) string {
 	if !user.Cur.Del {
-		return WrapError(models.ErrPermissionDenied)
+		return WrapError(ErrPermissionDenied)
 	}
 
 	key := storage.MakeKey(user.Cur.Namespace, args[0])
@@ -147,7 +155,7 @@ func (c *Database) del(user *models.User, args []string) string {
 // get - executes the get command to retrieve the value of a key from the storage.
 func (c *Database) get(user *models.User, args []string) string {
 	if !user.Cur.Get {
-		return WrapError(models.ErrPermissionDenied)
+		return WrapError(ErrPermissionDenied)
 	}
 
 	key := storage.MakeKey(user.Cur.Namespace, args[0])
@@ -159,10 +167,10 @@ func (c *Database) get(user *models.User, args []string) string {
 	return WrapOK(val)
 }
 
-// set - Executes the SET command to store a key-value pair in the storage.
+// set - executes the SET command to store a key-value pair in the storage.
 func (c *Database) set(user *models.User, args []string) string {
 	if !user.Cur.Set {
-		return WrapError(models.ErrPermissionDenied)
+		return WrapError(ErrPermissionDenied)
 	}
 
 	key := storage.MakeKey(user.Cur.Namespace, args[0])
@@ -176,10 +184,10 @@ func (c *Database) set(user *models.User, args []string) string {
 // help - executes the help command to print information about commands.
 func (c *Database) help(usr *models.User, _ []string) string {
 	if usr.IsAdmin(c.cfg) {
-		return models.AdminHelpText
+		return compute.AdminHelpText
 	}
 
-	return models.UserHelpText
+	return compute.UserHelpText
 }
 
 // ns - executes the ns command to list namespaces.
@@ -233,11 +241,11 @@ func (c *Database) users(user *models.User, args []string) string {
 // createRole - executes the create role command to create a new role.
 func (c *Database) createRole(user *models.User, args []string) string {
 	if !c.namespaceStorage.Exists(args[2]) {
-		return WrapError(models.ErrNamespaceNotFound)
+		return WrapError(identity.ErrNamespaceNotFound)
 	}
 
 	_, err := c.rolesStorage.Get(args[0])
-	if err != nil && !errors.Is(err, models.ErrRoleNotFound) {
+	if err != nil && !errors.Is(err, identity.ErrRoleNotFound) {
 		return WrapError(err)
 	}
 
@@ -260,7 +268,7 @@ func (c *Database) createRole(user *models.User, args []string) string {
 // Delete - executes command to delete a role.
 func (c *Database) Delete(user *models.User, args []string) string {
 	users, err := c.userStorage.ListUsernames()
-	if err != nil && !errors.Is(err, models.ErrEmptyUsers) {
+	if err != nil && !errors.Is(err, identity.ErrEmptyUsers) {
 		return WrapError(err)
 	}
 
@@ -331,7 +339,7 @@ func (c *Database) setNamespace(user *models.User, args []string) string {
 	namespace := args[0]
 
 	if !c.namespaceStorage.Exists(namespace) {
-		return WrapError(models.ErrNamespaceNotFound)
+		return WrapError(identity.ErrNamespaceNotFound)
 	}
 
 	var (
@@ -352,7 +360,7 @@ func (c *Database) setNamespace(user *models.User, args []string) string {
 		}
 
 		if !hasAccess {
-			return WrapError(models.ErrPermissionDenied)
+			return WrapError(ErrPermissionDenied)
 		}
 	}
 

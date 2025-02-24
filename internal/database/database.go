@@ -1,28 +1,19 @@
 package database
 
 import (
-	"errors"
-
 	"github.com/neekrasov/kvdb/internal/config"
-	"github.com/neekrasov/kvdb/internal/database/models"
-	"github.com/neekrasov/kvdb/internal/database/storage"
+	"github.com/neekrasov/kvdb/internal/database/compute"
+	"github.com/neekrasov/kvdb/internal/database/identity"
+	"github.com/neekrasov/kvdb/internal/database/identity/models"
 )
 
-var (
-	// ErrKeyNotFound is returned when a key does not exist in the database.
-	ErrKeyNotFound = errors.New("key not found")
-
-	// ErrInvalidSyntax is returned when a query has invalid syntax.
-	ErrInvalidSyntax = errors.New("invalid syntax")
-)
-
-// Parser parses user queries into executable commands.
+// Parser - parses user queries into executable commands.
 type Parser interface {
-	// Parse converts a query string into a Command or returns an error for invalid syntax.
-	Parse(query string) (*models.Command, error)
+	// Parse - converts a query string into a Command or returns an error for invalid syntax.
+	Parse(query string) (*compute.Command, error)
 }
 
-// Engine defines the interface for storing, retrieving, and deleting key-value pairs.
+// Storage - interface for storing, retrieving, and deleting key-value pairs.
 type Storage interface {
 	// Set stores a value for a given key.
 	Set(key, value string) error
@@ -32,7 +23,7 @@ type Storage interface {
 	Del(key string) error
 }
 
-// NamespacesStorage - An interface for managing namespaces.
+// NamespacesStorage - interface for managing namespaces.
 type NamespacesStorage interface {
 	// Save - Saves a namespace
 	Save(namespace string) error
@@ -46,59 +37,59 @@ type NamespacesStorage interface {
 	Append(namespace string) ([]string, error)
 }
 
-// UsersStorage - An interface for managing users.
+// UsersStorage - interface for managing users.
 type UsersStorage interface {
-	// Authenticate - Authenticates a user by username and password.
+	// Authenticate - authenticates a user by username and password.
 	Authenticate(username, password string) (*models.User, error)
-	// Create - Creates a new user.
+	// Create - creates a new user.
 	Create(username, password string) (*models.User, error)
-	// Get - Retrieves a user by username.
+	// Get - retrieves a user by username.
 	Get(username string) (*models.User, error)
-	// SaveRaw - Saves a user object directly to storage.
+	// SaveRaw - saves a user object directly to storage.
 	SaveRaw(user *models.User) error
-	// Delete - Deletes a user by username.
+	// Delete - deletes a user by username.
 	Delete(username string) error
-	// AssignRole - Assigns a role to a user.
+	// AssignRole - assigns a role to a user.
 	AssignRole(username string, role string) error
-	// ListUsernames - Retrieves a list of all usernames.
+	// ListUsernames - retrieves a list of all usernames.
 	ListUsernames() ([]string, error)
-	// Append - Adds a username to the list of users.
+	// Append - adds a username to the list of users.
 	Append(user string) ([]string, error)
 }
 
-// RolesStorage - An interface for managing roles.
+// RolesStorage - interface for managing roles.
 type RolesStorage interface {
-	// Save - Saves a role.
+	// Save - saves a role.
 	Save(role *models.Role) error
-	// Get - Retrieves a role by name.
+	// Get - retrieves a role by name.
 	Get(name string) (*models.Role, error)
-	// Delete - Deletes a role by name.
+	// Delete - deletes a role by name.
 	Delete(name string) error
-	// List - Retrieves a list of all roles.
+	// List - retrieves a list of all roles.
 	List() ([]string, error)
-	// Append - Adds a role to the list of roles.
+	// Append - adds a role to the list of roles.
 	Append(role string) ([]string, error)
 }
 
-// CommandHandler used to execute specific actions based on user input.
+// CommandHandler - used to execute specific actions based on user input.
 type CommandHandler struct {
-	// Func - The function to execute for the models.
+	// Func - function to execute for the models.
 	Func func(*models.User, []string) string
-	// AdminOnly - Indicates whether the models can only be executed by an admin.
+	// AdminOnly - indicates whether the models can only be executed by an admin.
 	AdminOnly bool
 }
 
-// SessionStorage - An interface for managing user sessions.
+// SessionStorage - interface for managing user sessions.
 type SessionStorage interface {
-	// Create - Creates a new session for a user.
+	// Create - creates a new session for a user.
 	Create(username string) (string, error)
-	// Get - Retrieves a session by token.
-	Get(token string) (*storage.Session, error)
-	// Delete - Deletes a session by token.
+	// Get - retrieves a session by token.
+	Get(token string) (*identity.Session, error)
+	// Delete - deletes a session by token.
 	Delete(token string) error
 }
 
-// Database represents the main entry point for parsing and executing commands.
+// Database - represents the main entry point for parsing and executing commands.
 type Database struct {
 	parser           Parser
 	storage          Storage
@@ -109,7 +100,7 @@ type Database struct {
 	cfg              *config.RootConfig
 }
 
-// New creates and initializes a new instance of Database.
+// New - creates and initializes a new instance of Database.
 func New(
 	parser Parser, storage Storage,
 	userStorage UsersStorage,

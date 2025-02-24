@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database"
+	"github.com/neekrasov/kvdb/internal/database/compute"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/client"
 	"github.com/neekrasov/kvdb/pkg/client"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func TestNewClient_Success(t *testing.T) {
 	mockClient := mocks.NewClient(t)
 	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil)
 
-	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", compute.CommandAUTH, cfg.Username, cfg.Password))).
 		Return([]byte("OK"), nil)
 
 	kvdbClient, err := client.New(cfg, mockClientFactory)
@@ -69,7 +70,7 @@ func TestSendWithRetries_Success(t *testing.T) {
 	mockClient := mocks.NewClient(t)
 
 	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil)
-	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", compute.CommandAUTH, cfg.Username, cfg.Password))).
 		Return([]byte("OK"), nil)
 
 	kvdbClient, err := client.New(cfg, mockClientFactory)
@@ -98,14 +99,14 @@ func TestSendWithRetries_MaxReconnects(t *testing.T) {
 	mockClient := mocks.NewClient(t)
 	mockClient.On("Close").Return(nil).Once()
 	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil).Once()
-	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", compute.CommandAUTH, cfg.Username, cfg.Password))).
 		Return([]byte("OK"), nil).Once()
 
 	kvdbClient, err := client.New(cfg, mockClientFactory)
 	require.NoError(t, err, "NewClient should not return an error")
 	mockClient.On("Send", mock.Anything, []byte("GET key")).Return(nil, errors.New("connection failed")).Once()
 	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil).Once()
-	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", compute.CommandAUTH, cfg.Username, cfg.Password))).
 		Return([]byte("OK"), nil).Once()
 
 	_, err = kvdbClient.Send(context.Background(), "GET key")
@@ -127,8 +128,8 @@ func TestAuthenticationFailure(t *testing.T) {
 
 	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil)
 
-	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
-		Return([]byte(models.ErrAuthenticationRequired.Error()), nil)
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", compute.CommandAUTH, cfg.Username, cfg.Password))).
+		Return([]byte(database.ErrAuthenticationRequired.Error()), nil)
 
 	_, err := client.New(cfg, mockClientFactory)
 	require.ErrorIs(t, err, client.ErrAuthenticationRequired)
@@ -149,7 +150,7 @@ func TestClose(t *testing.T) {
 	mockClient := mocks.NewClient(t)
 	mockClientFactory.On("Make", cfg.Address, mock.Anything).Return(mockClient, nil)
 
-	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", models.CommandAUTH, cfg.Username, cfg.Password))).
+	mockClient.On("Send", mock.Anything, []byte(fmt.Sprintf("%s %s %s", compute.CommandAUTH, cfg.Username, cfg.Password))).
 		Return([]byte("OK"), nil)
 
 	kvdbClient, err := client.New(cfg, mockClientFactory)

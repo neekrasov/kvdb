@@ -8,7 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database"
+	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
 	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
 )
@@ -19,7 +20,7 @@ var (
 	ErrAuthenticationRequired = errors.New("authentication required")
 )
 
-// ClientFactory interface for creating a new client.
+// ClientFactory - interface for creating a new client.
 type ClientFactory interface {
 	Make(address string, opts ...tcp.ClientOption) (Client, error)
 }
@@ -30,7 +31,7 @@ type Client interface {
 	Send(ctx context.Context, request []byte) ([]byte, error)
 }
 
-// KVDBClientConfig holds the configuration settings for the KVDB client.
+// KVDBClientConfig - holds the configuration settings for the KVDB client.
 type KVDBClientConfig struct {
 	Username             string        `json:"username"`
 	Password             string        `json:"password"`
@@ -41,7 +42,7 @@ type KVDBClientConfig struct {
 	ReconnectBaseDelay   time.Duration `json:"reconnectBaseDelay"`
 }
 
-// KVDBClient represents a client for interacting with a KVDB server.
+// KVDBClient - represents a client for interacting with a KVDB server.
 type KVDBClient struct {
 	clientFactory ClientFactory
 	cfg           *KVDBClientConfig
@@ -49,7 +50,7 @@ type KVDBClient struct {
 	client        Client
 }
 
-// New creates and returns a new KVDBClient with the provided configuration.
+// New - creates and returns a new KVDBClient with the provided configuration.
 func New(cfg *KVDBClientConfig, clientFactory ClientFactory) (*KVDBClient, error) {
 	if cfg.Address == "" {
 		return nil, errors.New("empty address")
@@ -79,7 +80,7 @@ func New(cfg *KVDBClientConfig, clientFactory ClientFactory) (*KVDBClient, error
 	return kvdbClient, nil
 }
 
-// connect establishes a new connection to the server.
+// connect - establishes a new connection to the server.
 func (k *KVDBClient) connect() error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -110,9 +111,9 @@ func (k *KVDBClient) connect() error {
 	return nil
 }
 
-// auth performs authentication with the server.
+// auth - performs authentication with the server.
 func (k *KVDBClient) auth() error {
-	cmd := fmt.Sprintf("%s %s %s", models.CommandAUTH, k.cfg.Username, k.cfg.Password)
+	cmd := fmt.Sprintf("%s %s %s", compute.CommandAUTH, k.cfg.Username, k.cfg.Password)
 	res, err := k.client.Send(context.Background(), []byte(cmd))
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
@@ -125,7 +126,7 @@ func (k *KVDBClient) auth() error {
 	return nil
 }
 
-// sendWithRetries sends a request to the server with retries on failure.
+// sendWithRetries - sends a request to the server with retries on failure.
 func (k *KVDBClient) sendWithRetries(ctx context.Context, request []byte) (string, error) {
 	attempt := 0
 
@@ -142,7 +143,7 @@ func (k *KVDBClient) sendWithRetries(ctx context.Context, request []byte) (strin
 			resBytes, err := k.client.Send(ctx, request)
 			if err == nil {
 				resString := string(resBytes)
-				if strings.Contains(resString, models.ErrAuthenticationRequired.Error()) {
+				if strings.Contains(resString, database.ErrAuthenticationRequired.Error()) {
 					if err := k.auth(); err != nil {
 						return "", fmt.Errorf("re-authentication failed: %w", err)
 					}
@@ -159,7 +160,7 @@ func (k *KVDBClient) sendWithRetries(ctx context.Context, request []byte) (strin
 	}
 }
 
-// reconnect attempts to reconnect with exponential backoff.
+// reconnect - attempts to reconnect with exponential backoff.
 func (k *KVDBClient) reconnect(ctx context.Context, attempt int) error {
 	delay := k.cfg.ReconnectBaseDelay * time.Duration(attempt)
 
@@ -180,7 +181,7 @@ func (k *KVDBClient) reconnect(ctx context.Context, attempt int) error {
 	return nil
 }
 
-// Send sends a query to the KVDB server and returns the result or an error.
+// Send - sends a query to the KVDB server and returns the result or an error.
 func (k *KVDBClient) Send(ctx context.Context, query string) (string, error) {
 	res, err := k.sendWithRetries(ctx, []byte(query))
 	if err != nil {
@@ -190,7 +191,7 @@ func (k *KVDBClient) Send(ctx context.Context, query string) (string, error) {
 	return res, nil
 }
 
-// Close closes all kvdb client connections.
+// Close - closes all kvdb client connections.
 func (k *KVDBClient) Close() error {
 	k.mu.Lock()
 	defer k.mu.Unlock()

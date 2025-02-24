@@ -2,49 +2,44 @@ package application
 
 import (
 	"context"
-	"errors"
-	"slices"
+	"fmt"
 
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database"
 	"github.com/neekrasov/kvdb/internal/database/compute"
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database/identity"
 	"github.com/neekrasov/kvdb/internal/database/storage"
-	"github.com/neekrasov/kvdb/internal/database/storage/engine"
-	"github.com/neekrasov/kvdb/internal/database/storage/wal"
-	"github.com/neekrasov/kvdb/internal/database/storage/wal/compressor"
-	"github.com/neekrasov/kvdb/internal/database/storage/wal/filesystem"
-	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
+	"github.com/neekrasov/kvdb/internal/database/storage/replication"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
 	"go.uber.org/zap"
 )
 
-// Application represents the main application that starts the server and handles signals.
+// Application - represents the main application that starts the server and handles signals.
 type Application struct {
 	cfg *config.Config
 }
 
-// New creates and returns a new instance of Application.
+// New - creates and returns a new instance of Application.
 func New(cfg *config.Config) *Application {
 	return &Application{
 		cfg: cfg,
 	}
 }
 
-// Start initializes configuration, logger, database, and server, then starts the server and handles termination signals.
+// Start - initializes configuration, logger, database, and server, then starts the server and handles termination signals.
 func (a *Application) Start(ctx context.Context) error {
 	logger.InitLogger(a.cfg.Logging.Level, a.cfg.Logging.Output)
 
 	engine, err := initEngine(a.cfg.Engine)
 	if err != nil {
-		return err
+		return fmt.Errorf("initialize engine failed: %w", err)
 	}
 
 	wal, err := initWAL(a.cfg.WAL)
 	if err != nil {
-		return err
+		return fmt.Errorf("initialize wal failed: %w", err)
 	}
 	defer func() {
 		if err := wal.Close(); err != nil {
@@ -56,21 +51,48 @@ func (a *Application) Start(ctx context.Context) error {
 		wal.Start(ctx)
 	}
 
-	dstorage, err := storage.NewStorage(engine, storage.WithWALOpt(wal))
+	replica, err := initReplica(wal, a.cfg.WAL, a.cfg.Replication)
 	if err != nil {
-		return err
+		return fmt.Errorf("initialize replica failed: %w", err)
 	}
-	usersStorage, err := initUserStorage(engine, a.cfg)
-	if err != nil {
-		return err
+
+	master, ok := replica.(*replication.Master)
+	if ok {
+		go master.Start(ctx)
 	}
-	rolesStorage, err := initRolesStorage(engine, a.cfg)
-	if err != nil {
-		return err
+
+	slave, ok := replica.(*replication.Slave)
+	if ok {
+		go slave.Start(ctx)
 	}
-	namespaceStorage, err := initNamespacesStorage(engine, a.cfg.DefaultNamespaces)
+
+	var options []storage.StorageOpt
+	if wal != nil {
+		options = append(options, storage.WithWALOpt(wal))
+	}
+
+	if master != nil {
+		options = append(options, storage.WithReplicaOpt(master))
+	} else if slave != nil {
+		options = append(options, storage.WithReplicaOpt(slave))
+		options = append(options, storage.WithReplicaStreamOpt(slave.Stream()))
+	}
+
+	dstorage, err := storage.NewStorage(engine, options...)
 	if err != nil {
-		return err
+		return fmt.Errorf("initialize storage failed: %w", err)
+	}
+	namespaceStorage, err := initNamespacesStorage(dstorage, a.cfg)
+	if err != nil {
+		return fmt.Errorf("initialize default namespaces failed: %w", err)
+	}
+	usersStorage, err := initUserStorage(dstorage, a.cfg)
+	if err != nil {
+		return fmt.Errorf("initialize default users failed: %w", err)
+	}
+	rolesStorage, err := initRolesStorage(dstorage, a.cfg)
+	if err != nil {
+		return fmt.Errorf("initialize default roles failed: %w", err)
 	}
 
 	tcpServerOpts := make([]tcp.ServerOption, 0)
@@ -95,223 +117,40 @@ func (a *Application) Start(ctx context.Context) error {
 		tcpServerOpts = append(tcpServerOpts, tcp.WithServerBufferSize(uint(size)))
 	}
 
-	database := database.New(compute.NewParser(initCommandTrie()), dstorage, usersStorage, namespaceStorage,
-		rolesStorage, storage.NewSessionStorage(), a.cfg.Root)
-	server := tcp.NewServer(database, tcpServerOpts...)
-	if err := server.Start(ctx, a.cfg.Network.Address); err != nil {
-		return err
+	db := database.New(
+		compute.NewParser(initCommandTrie()), dstorage,
+		usersStorage, namespaceStorage, rolesStorage,
+		identity.NewSessionStorage(), a.cfg.Root,
+	)
+
+	server, err := tcp.NewServer(a.cfg.Network.Address, tcpServerOpts...)
+	if err != nil {
+		return fmt.Errorf("init tcp server failed: %w", err)
+	}
+
+	server.Start(ctx, func(ctx context.Context, request []byte) []byte {
+		state, ok := ctx.Value(tcp.ConnectionStateKey).(*tcp.ConnectionState)
+		if !ok {
+			return []byte("internal server error: connection state not found")
+		}
+
+		if state.User == nil {
+			user, err := db.Login(string(request))
+			if err != nil {
+				response := database.WrapError(fmt.Errorf("authentication failed: %w", err))
+				return []byte(response)
+			}
+
+			state.User = user
+			return []byte(database.WrapOK("authentication successful"))
+		}
+
+		return []byte(db.HandleQuery(state.User, string(request)))
+	})
+
+	if err = server.Close(); err != nil {
+		return fmt.Errorf("failed to close server: %w", err)
 	}
 
 	return nil
-}
-
-func initEngine(cfg *config.EngineConfig) (*engine.Engine, error) {
-	if cfg == nil {
-		return nil, errors.New("empty engine config")
-	}
-
-	return engine.New(engine.WithPartitionNum(cfg.PartitionNum)), nil
-}
-
-func initRolesStorage(engine *engine.Engine, cfg *config.Config) (*storage.RolesStorage, error) {
-	storage := storage.NewRolesStorage(engine)
-	err := storage.Save(&models.Role{
-		Name: models.RootRoleName,
-		Get:  true, Set: true, Del: true,
-		Namespace: models.DefaultNameSpace,
-	})
-	if err != nil {
-		logger.Warn("save root role failed", zap.Error(err))
-	}
-
-	err = storage.Save(&models.Role{
-		Name: models.DefaultRoleName,
-		Get:  true, Set: true, Del: true,
-		Namespace: models.DefaultNameSpace,
-	})
-	if err != nil {
-		logger.Warn("save default role failed", zap.Error(err))
-	}
-
-	for _, role := range cfg.DefaultRoles {
-		if role.Name == "" || role.Name == models.DefaultRoleName {
-			return nil, errors.New("invalid role name in default roles")
-		}
-
-		contains := slices.ContainsFunc(cfg.DefaultNamespaces, func(nsCfg config.NamespaceConfig) bool {
-			return nsCfg.Name == role.Namespace
-		})
-
-		if role.Namespace == "" && !contains {
-			return nil, errors.New("invalid role namespace in default roles")
-		}
-
-		err := storage.Save(&models.Role{
-			Name:      role.Name,
-			Get:       role.Get,
-			Set:       role.Set,
-			Del:       role.Del,
-			Namespace: role.Namespace,
-		})
-		if err != nil {
-			logger.Warn("save default role failed", zap.Error(err))
-		}
-
-		list, err := storage.Append(role.Name)
-		if err != nil {
-			logger.Warn("save default role in global list failed", zap.Error(err))
-		}
-
-		logger.Debug("created default role", zap.Any("role", role.Name), zap.Strings("list", list))
-	}
-
-	return storage, nil
-}
-
-func initUserStorage(
-	engine *engine.Engine,
-	cfg *config.Config,
-) (*storage.UsersStorage, error) {
-	storage := storage.NewUsersStorage(engine)
-	err := storage.SaveRaw(&models.User{
-		Username: cfg.Root.Username,
-		Password: cfg.Root.Password,
-		Roles:    []string{models.RootRoleName},
-		Cur:      models.DefaultRole,
-	})
-	if err != nil {
-		logger.Warn("save root user failed", zap.Error(err))
-	}
-
-	for _, user := range cfg.DefaultUsers {
-		if user.Username == "" {
-			return nil, errors.New("invalid username in default list")
-		}
-
-		if user.Password == "" {
-			return nil, errors.New("invalid username in default list")
-		}
-
-		if !slices.Contains(user.Roles, models.DefaultRoleName) {
-			user.Roles = append(user.Roles, models.DefaultRoleName)
-		}
-
-		var userRole config.RoleConfig
-		for _, v := range cfg.DefaultRoles {
-			if slices.Contains(user.Roles, v.Name) {
-				userRole = v
-			}
-		}
-
-		user := models.User{
-			Username: user.Username,
-			Password: user.Password,
-			Roles:    user.Roles,
-			Cur: models.Role{
-				Name:      userRole.Name,
-				Get:       userRole.Get,
-				Set:       userRole.Set,
-				Del:       userRole.Del,
-				Namespace: userRole.Namespace,
-			},
-		}
-
-		err = storage.SaveRaw(&user)
-		if err != nil {
-			logger.Warn("save default user failed", zap.Error(err))
-		}
-
-		list, err := storage.Append(user.Username)
-		if err != nil {
-			logger.Warn("save default user in global list failed", zap.Error(err))
-		}
-
-		user.Password = ""
-		logger.Debug("created default user", zap.Any("user", user), zap.Strings("list", list))
-	}
-
-	return storage, nil
-}
-
-func initNamespacesStorage(engine *engine.Engine, defaultNamespaces []config.NamespaceConfig) (*storage.NamespaceStorage, error) {
-	storage := storage.NewNamespaceStorage(engine)
-	err := storage.Save(models.DefaultNameSpace)
-	if err != nil {
-		logger.Warn("save default namespace failed", zap.Error(err))
-	}
-
-	for _, namespace := range defaultNamespaces {
-		if namespace.Name == "" {
-			return nil, errors.New("invalid namaspace name in default list")
-		}
-
-		err := storage.Save(namespace.Name)
-		if err != nil {
-			logger.Warn("save namespace in default list failed", zap.Error(err))
-		}
-
-		list, err := storage.Append(namespace.Name)
-		if err != nil {
-			logger.Warn("save default namespace in global list failed", zap.Error(err))
-		}
-
-		logger.Debug("created default namespace", zap.Any("namespace", namespace.Name), zap.Strings("list", list))
-	}
-
-	return storage, nil
-}
-
-func initWAL(cfg *config.WALConfig) (*wal.WAL, error) {
-	if cfg == nil {
-		return nil, nil
-	}
-
-	segmentStorage, err := segment.NewFileSegmentStorage(
-		new(filesystem.LocalFileSystem), cfg.DataDir)
-	if err != nil {
-		return nil, err
-	}
-
-	segmentManagerOpts := make([]wal.FileSegmentManagerOpt, 0)
-	if cfg.MaxSegmentSize != "" {
-		size, err := sizeparser.ParseSize(cfg.MaxSegmentSize)
-		if err != nil {
-			return nil, err
-		}
-
-		segmentManagerOpts = append(segmentManagerOpts, wal.WithMaxSegmentSize(size))
-	}
-	if cfg.Compression == "gzip" {
-		segmentManagerOpts = append(segmentManagerOpts, wal.WithCompressor(new(compressor.GzipCompressor)))
-	}
-
-	segmentManager, err := wal.NewFileSegmentManager(
-		segmentStorage, segmentManagerOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return wal.NewWAL(segmentManager, cfg.FlushingBatchSize, cfg.FlushingBatchTimeout), nil
-}
-
-func initCommandTrie() *compute.TrieNode {
-	root := compute.NewTrieNode()
-	root.Insert([]string{"create", "role"}, models.CommandCREATEROLE)
-	root.Insert([]string{"create", "user"}, models.CommandCREATEUSER)
-	root.Insert([]string{"assign", "role"}, models.CommandASSIGNROLE)
-	root.Insert([]string{"delete", "role"}, models.CommandDELETEROLE)
-	root.Insert([]string{"create", "ns"}, models.CommandCREATENAMESPACE)
-	root.Insert([]string{"delete", "ns"}, models.CommandDELETENAMESPACE)
-	root.Insert([]string{"set", "ns"}, models.CommandSETNS)
-	root.Insert([]string{"get"}, models.CommandGET)
-	root.Insert([]string{"set"}, models.CommandSET)
-	root.Insert([]string{"del"}, models.CommandDEL)
-	root.Insert([]string{"login"}, models.CommandAUTH)
-	root.Insert([]string{"users"}, models.CommandUSERS)
-	root.Insert([]string{"me"}, models.CommandME)
-	root.Insert([]string{"roles"}, models.CommandROLES)
-	root.Insert([]string{"ns"}, models.CommandNAMESPACES)
-	root.Insert([]string{"help"}, models.CommandHELP)
-
-	return root
 }

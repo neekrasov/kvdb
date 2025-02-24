@@ -24,7 +24,6 @@ func TestNewSegment(t *testing.T) {
 	buf := NewBufferCloser()
 	segment := segment.NewSegment(1, 100, true, buf)
 
-	// Проверяем, что поля структуры инициализированы правильно
 	assert.Equal(t, 1, segment.ID())
 	assert.Equal(t, 100, segment.Size())
 	assert.Equal(t, true, segment.Compressed())

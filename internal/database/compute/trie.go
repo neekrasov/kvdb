@@ -1,12 +1,8 @@
 package compute
 
-import (
-	"github.com/neekrasov/kvdb/internal/database/models"
-)
-
 type TrieNode struct {
 	children map[string]*TrieNode
-	command  models.CommandType
+	command  CommandType
 }
 
 func NewTrieNode() *TrieNode {
@@ -15,7 +11,7 @@ func NewTrieNode() *TrieNode {
 	}
 }
 
-func (t *TrieNode) Insert(command []string, cmdType models.CommandType) {
+func (t *TrieNode) Insert(command []string, cmdType CommandType) {
 	current := t
 	for _, part := range command {
 		if _, exists := current.children[part]; !exists {
@@ -26,7 +22,7 @@ func (t *TrieNode) Insert(command []string, cmdType models.CommandType) {
 	current.command = cmdType
 }
 
-func (t *TrieNode) Search(tokens []string) (models.CommandType, []string) {
+func (t *TrieNode) Search(tokens []string) (CommandType, []string) {
 	current := t
 	consumedTokens := 0
 

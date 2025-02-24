@@ -1,6 +1,10 @@
  .PHONY: kvdb
 kvdb:
-	go run ./cmd/kvdb
+	go build ./cmd/kvdb && ./kvdb --config config.yml
+
+ .PHONY: kvdb-slave
+kvdb-slave:
+	go build ./cmd/kvdb && ./kvdb --config config.slave.yml
 
  .PHONY: build_client
 build_client:

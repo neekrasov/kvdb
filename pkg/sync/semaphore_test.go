@@ -65,7 +65,6 @@ func TestSemaphore_NilSafety(t *testing.T) {
 	t.Parallel()
 
 	var sem *pkgsync.Semaphore
-	// Должно безопасно выполняться без паники
 	sem.Acquire()
 	sem.Release()
 }

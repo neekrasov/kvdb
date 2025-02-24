@@ -3,8 +3,6 @@ package storage_test
 import (
 	"testing"
 
-	"github.com/neekrasov/kvdb/internal/database"
-	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/storage"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +44,7 @@ func TestStorage(t *testing.T) {
 
 		result, err := store.Get(key)
 
-		assert.ErrorIs(t, err, models.ErrKeyNotFound)
+		assert.ErrorIs(t, err, storage.ErrKeyNotFound)
 		assert.Empty(t, result)
 		mockEngine.AssertCalled(t, "Get", key)
 	})
@@ -64,12 +62,12 @@ func TestStorage(t *testing.T) {
 
 	t.Run("Del - Error", func(t *testing.T) {
 		key := "testKey"
-		mockEngine.On("Del", key).Return(database.ErrKeyNotFound).Once()
+		mockEngine.On("Del", key).Return(storage.ErrKeyNotFound).Once()
 		mockWAL.On("Del", key).Return(nil).Once()
 
 		err := store.Del(key)
 
-		assert.ErrorIs(t, err, database.ErrKeyNotFound)
+		assert.ErrorIs(t, err, storage.ErrKeyNotFound)
 		mockEngine.AssertCalled(t, "Del", key)
 	})
 }

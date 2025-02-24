@@ -2,8 +2,6 @@ package engine
 
 import (
 	"sync"
-
-	"github.com/neekrasov/kvdb/internal/database"
 )
 
 // partitionMap - represents one data partition.
@@ -41,10 +39,6 @@ func (p *partitionMap) Del(key string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if _, exists := p.data[key]; !exists {
-		return database.ErrKeyNotFound
-	}
 	delete(p.data, key)
-
 	return nil
 }

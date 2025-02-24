@@ -167,7 +167,7 @@ func (_c *NamespacesStorage_Exists_Call) RunAndReturn(run func(string) bool) *Na
 	return _c
 }
 
-// List provides a mock function with given fields:
+// List provides a mock function with no fields
 func (_m *NamespacesStorage) List() ([]string, error) {
 	ret := _m.Called()
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/neekrasov/kvdb/internal/config"
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database/identity/models"
 	"github.com/stretchr/testify/assert"
 )
 

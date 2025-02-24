@@ -19,7 +19,7 @@ func isTimeout(err error) bool {
 	return ok && netErr.Timeout()
 }
 
-// Client represents a TCP client connection.
+// Client - represents a TCP client connection.
 type Client struct {
 	address     string        // Server address.
 	connection  net.Conn      // The TCP connection for the client.
@@ -27,7 +27,7 @@ type Client struct {
 	bufferSize  int           // The buffer size for reading data.
 }
 
-// NewClient creates a new client with the given address and options.
+// NewClient - creates a new client with the given address and options.
 func NewClient(address string, options ...ClientOption) (*Client, error) {
 	client := &Client{
 		address:    address,
@@ -38,15 +38,15 @@ func NewClient(address string, options ...ClientOption) (*Client, error) {
 		opt(client)
 	}
 
-	if err := client.connect(); err != nil {
+	if err := client.Сonnect(); err != nil {
 		return nil, fmt.Errorf("init connection failed: %w", err)
 	}
 
 	return client, nil
 }
 
-// connect establishes a new connection to the server.
-func (c *Client) connect() error {
+// Сonnect - establishes a new connection to the server.
+func (c *Client) Сonnect() error {
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		return fmt.Errorf("dial failed: %w", err)
@@ -56,14 +56,10 @@ func (c *Client) connect() error {
 	return nil
 }
 
-// Send sends a request to the server and returns the response.
+// Send - sends a request to the server and returns the response.
 func (c *Client) Send(ctx context.Context, request []byte) ([]byte, error) {
 	if c.connection == nil {
 		return nil, ErrConnectionClosed
-	}
-
-	if len(request) >= c.bufferSize {
-		return nil, ErrSmallBufferSize
 	}
 
 	if c.idleTimeout > 0 {
@@ -93,10 +89,14 @@ func (c *Client) Send(ctx context.Context, request []byte) ([]byte, error) {
 		return nil, fmt.Errorf("error reading from connection: %w", err)
 	}
 
+	if n >= c.bufferSize {
+		return nil, ErrSmallBufferSize
+	}
+
 	return response[:n], nil
 }
 
-// Close closes the client connection.
+// Close - closes the client connection.
 func (c *Client) Close() error {
 	if c.connection != nil {
 		if err := c.connection.Close(); err != nil {

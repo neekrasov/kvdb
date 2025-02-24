@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	storage "github.com/neekrasov/kvdb/internal/database/storage"
+	identity "github.com/neekrasov/kvdb/internal/database/identity"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -123,23 +123,23 @@ func (_c *SessionStorage_Delete_Call) RunAndReturn(run func(string) error) *Sess
 }
 
 // Get provides a mock function with given fields: token
-func (_m *SessionStorage) Get(token string) (*storage.Session, error) {
+func (_m *SessionStorage) Get(token string) (*identity.Session, error) {
 	ret := _m.Called(token)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Get")
 	}
 
-	var r0 *storage.Session
+	var r0 *identity.Session
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*storage.Session, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*identity.Session, error)); ok {
 		return rf(token)
 	}
-	if rf, ok := ret.Get(0).(func(string) *storage.Session); ok {
+	if rf, ok := ret.Get(0).(func(string) *identity.Session); ok {
 		r0 = rf(token)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*storage.Session)
+			r0 = ret.Get(0).(*identity.Session)
 		}
 	}
 
@@ -170,12 +170,12 @@ func (_c *SessionStorage_Get_Call) Run(run func(token string)) *SessionStorage_G
 	return _c
 }
 
-func (_c *SessionStorage_Get_Call) Return(_a0 *storage.Session, _a1 error) *SessionStorage_Get_Call {
+func (_c *SessionStorage_Get_Call) Return(_a0 *identity.Session, _a1 error) *SessionStorage_Get_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *SessionStorage_Get_Call) RunAndReturn(run func(string) (*storage.Session, error)) *SessionStorage_Get_Call {
+func (_c *SessionStorage_Get_Call) RunAndReturn(run func(string) (*identity.Session, error)) *SessionStorage_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }

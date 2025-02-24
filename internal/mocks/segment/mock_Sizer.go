@@ -17,7 +17,7 @@ func (_m *Sizer) EXPECT() *Sizer_Expecter {
 	return &Sizer_Expecter{mock: &_m.Mock}
 }
 
-// Size provides a mock function with given fields:
+// Size provides a mock function with no fields
 func (_m *Sizer) Size() int64 {
 	ret := _m.Called()
 

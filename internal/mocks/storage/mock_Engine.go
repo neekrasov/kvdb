@@ -149,7 +149,7 @@ func (_c *Engine_Set_Call) Return() *Engine_Set_Call {
 }
 
 func (_c *Engine_Set_Call) RunAndReturn(run func(string, string)) *Engine_Set_Call {
-	_c.Call.Return(run)
+	_c.Run(run)
 	return _c
 }
 

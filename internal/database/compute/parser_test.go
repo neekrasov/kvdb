@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/neekrasov/kvdb/internal/database"
-	"github.com/neekrasov/kvdb/internal/database/models"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,40 +16,40 @@ func TestParse_TableDriven(t *testing.T) {
 	tests := []struct {
 		name        string
 		query       string
-		expectedCmd *models.Command
+		expectedCmd *Command
 		expectedErr error
 	}{
 		{
 			name:  "Valid Query",
-			query: fmt.Sprintf("%s key value", models.CommandSET),
-			expectedCmd: &models.Command{
-				Type: models.CommandSET,
+			query: fmt.Sprintf("%s key value", CommandSET),
+			expectedCmd: &Command{
+				Type: CommandSET,
 				Args: []string{"key", "value"},
 			},
 		},
 		{
 			name:  "Invalid Query (one token)",
-			query: string(models.CommandSET),
-			expectedCmd: &models.Command{
-				Type: models.CommandSET,
+			query: string(CommandSET),
+			expectedCmd: &Command{
+				Type: CommandSET,
 				Args: []string{},
 			},
-			expectedErr: fmt.Errorf("%w: %s command requires exactly 2 arguments", models.ErrInvalidCommand, models.CommandSET),
+			expectedErr: fmt.Errorf("%w: %s command requires exactly 2 arguments", ErrInvalidCommand, CommandSET),
 		},
 		{
 			name:        "Empty Query",
 			query:       "",
-			expectedErr: fmt.Errorf("%w: query cannot be empty", database.ErrInvalidSyntax),
+			expectedErr: fmt.Errorf("%w: query cannot be empty", ErrInvalidSyntax),
 		},
 		{
 			name:        "Invalid Query (empty)",
 			query:       "   ",
-			expectedErr: fmt.Errorf("%w: query cannot be empty", database.ErrInvalidSyntax),
+			expectedErr: fmt.Errorf("%w: query cannot be empty", ErrInvalidSyntax),
 		},
 		{
 			name:        "Invalid Query (unknown command)",
 			query:       "UNKNOWN command value",
-			expectedErr: fmt.Errorf("%w: unrecognized command", models.ErrInvalidCommand),
+			expectedErr: fmt.Errorf("%w: unrecognized command", ErrInvalidCommand),
 		},
 	}
 
@@ -74,22 +72,22 @@ func TestParse_TableDriven(t *testing.T) {
 
 func initCommandTrie() *TrieNode {
 	root := NewTrieNode()
-	root.Insert([]string{"create", "role"}, models.CommandCREATEROLE)
-	root.Insert([]string{"create", "user"}, models.CommandCREATEUSER)
-	root.Insert([]string{"assign", "role"}, models.CommandASSIGNROLE)
-	root.Insert([]string{"delete", "role"}, models.CommandDELETEROLE)
-	root.Insert([]string{"create", "ns"}, models.CommandCREATENAMESPACE)
-	root.Insert([]string{"delete", "ns"}, models.CommandDELETENAMESPACE)
-	root.Insert([]string{"set", "ns"}, models.CommandSETNS)
-	root.Insert([]string{"get"}, models.CommandGET)
-	root.Insert([]string{"set"}, models.CommandSET)
-	root.Insert([]string{"del"}, models.CommandDEL)
-	root.Insert([]string{"login"}, models.CommandAUTH)
-	root.Insert([]string{"users"}, models.CommandUSERS)
-	root.Insert([]string{"me"}, models.CommandME)
-	root.Insert([]string{"roles"}, models.CommandROLES)
-	root.Insert([]string{"ns"}, models.CommandNAMESPACES)
-	root.Insert([]string{"help"}, models.CommandHELP)
+	root.Insert([]string{"create", "role"}, CommandCREATEROLE)
+	root.Insert([]string{"create", "user"}, CommandCREATEUSER)
+	root.Insert([]string{"assign", "role"}, CommandASSIGNROLE)
+	root.Insert([]string{"delete", "role"}, CommandDELETEROLE)
+	root.Insert([]string{"create", "ns"}, CommandCREATENAMESPACE)
+	root.Insert([]string{"delete", "ns"}, CommandDELETENAMESPACE)
+	root.Insert([]string{"set", "ns"}, CommandSETNS)
+	root.Insert([]string{"get"}, CommandGET)
+	root.Insert([]string{"set"}, CommandSET)
+	root.Insert([]string{"del"}, CommandDEL)
+	root.Insert([]string{"login"}, CommandAUTH)
+	root.Insert([]string{"users"}, CommandUSERS)
+	root.Insert([]string{"me"}, CommandME)
+	root.Insert([]string{"roles"}, CommandROLES)
+	root.Insert([]string{"ns"}, CommandNAMESPACES)
+	root.Insert([]string{"help"}, CommandHELP)
 
 	return root
 }

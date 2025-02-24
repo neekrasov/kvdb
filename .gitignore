@@ -3,6 +3,7 @@ log
 .vscode
 .idea
 config.yml
+config.slave.yml
 go.work
 go.work.sum
 vendor

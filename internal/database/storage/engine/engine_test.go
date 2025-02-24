@@ -3,7 +3,6 @@ package engine_test
 import (
 	"testing"
 
-	"github.com/neekrasov/kvdb/internal/database"
 	"github.com/neekrasov/kvdb/internal/database/storage/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,6 +37,6 @@ func TestInMemoryEngine(t *testing.T) {
 	t.Run("Delete non-existent key", func(t *testing.T) {
 		e := engine.New(engine.WithPartitionNum(1))
 		err := e.Del("missing")
-		assert.ErrorIs(t, err, database.ErrKeyNotFound)
+		assert.NoError(t, err)
 	})
 }

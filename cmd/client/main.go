@@ -20,6 +20,7 @@ func main() {
 	address := flag.String("address", "localhost:3223", "Address of the spider")
 	idleTimeout := flag.Duration("idle_timeout", time.Second*10, "Idle timeout for connection")
 	maxMessageSizeStr := flag.String("max_message_size", "4KB", "Max message size for connection")
+	maxReconnectionAttempts := flag.Int("max_reconnection_attempts", 10, "Max reconnection client attempts")
 	username := flag.String("username", "", "Username for connection")
 	password := flag.String("password", "", "Username for connection")
 	flag.Parse()
@@ -30,7 +31,7 @@ func main() {
 		MaxMessageSize:       *maxMessageSizeStr,
 		Username:             *username,
 		Password:             *password,
-		MaxReconnectAttempts: 10,
+		MaxReconnectAttempts: *maxReconnectionAttempts,
 	}, new(client.TCPClientFactory))
 	if err != nil {
 		log.Fatal(err)

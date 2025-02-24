@@ -17,6 +17,9 @@ wal:
   max_segment_size: "1"
   compression: "gzip"
   data_directory: "./data/wal"
+replication:
+  replica_type: "master"
+  master_address: "127.0.0.1:3232"
 default_roles:
   - name: "rwd_tenant1"
     get: true

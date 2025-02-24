@@ -17,7 +17,9 @@ var DefaultRole = Role{
 	Namespace: DefaultNameSpace,
 }
 
-// Role - A struct representing a role in the system.
+var ErrInvalidPerms = errors.New("invalid perms: perms must contain only 'r', 'w', 'd'")
+
+// Role - struct representing a role in the system.
 type Role struct {
 	Name      string `json:"name"`
 	Get       bool   `json:"get"`
@@ -26,7 +28,7 @@ type Role struct {
 	Namespace string `json:"namespace"`
 }
 
-// Perms - Returns a string representation of the role's permissions (r for read, w for write, d for delete).
+// Perms - returns a string representation of the role's permissions (r for read, w for write, d for delete).
 func (r *Role) Perms() string {
 	var res string
 
@@ -45,7 +47,7 @@ func (r *Role) Perms() string {
 	return res
 }
 
-// String - Returns a formatted string representation of the role, including its name, permissions, and namespace.
+// String - returns a formatted string representation of the role, including its name, permissions, and namespace.
 func (r *Role) String() string {
 	return fmt.Sprintf(
 		"name: '%s', perms: '%s' namespace: '%s'",
@@ -53,7 +55,7 @@ func (r *Role) String() string {
 	)
 }
 
-// NewRole - Creates a new role with the specified name, permissions, and namespace.
+// NewRole - creates a new role with the specified name, permissions, and namespace.
 func NewRole(name, perms, namespace string) (Role, error) {
 	if len(perms) > 3 || len(perms) == 0 {
 		return Role{}, errors.New("perms must be between 1 and 3 characters")

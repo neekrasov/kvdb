@@ -1,4 +1,4 @@
-package storage
+package identity
 
 import (
 	"crypto/rand"
@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-// Session - A struct that represents a user session, including the username, token, and expiration time.
+// Session - struct that represents a user session, including the username, token, and expiration time.
 type Session struct {
 	Username  string
 	Token     string
 	ExpiresAt time.Time
 }
 
-// GenerateToken - Generates a random token for session management.
+// GenerateToken - generates a random token for session management.
 func GenerateToken() (string, error) {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
@@ -24,20 +24,20 @@ func GenerateToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// SessionStorage - A struct that manages user sessions, including creation, retrieval, and deletion.
+// SessionStorage - a struct that manages user sessions, including creation, retrieval, and deletion.
 type SessionStorage struct {
 	mu       sync.RWMutex
 	sessions map[string]Session
 }
 
-// NewSessionStorage - Initializes and returns a new SessionStorage instance.
+// NewSessionStorage - initializes and returns a new SessionStorage instance.
 func NewSessionStorage() *SessionStorage {
 	return &SessionStorage{
 		sessions: make(map[string]Session),
 	}
 }
 
-// Create - Creates a new session for a user and stores it in the session storage.
+// Create - creates a new session for a user and stores it in the session storage.
 func (s *SessionStorage) Create(username string) (string, error) {
 	token, err := GenerateToken()
 	if err != nil {
@@ -56,7 +56,7 @@ func (s *SessionStorage) Create(username string) (string, error) {
 	return token, nil
 }
 
-// Get - Retrieves a session by its token.
+// Get - retrieves a session by its token.
 func (s *SessionStorage) Get(token string) (*Session, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -69,7 +69,7 @@ func (s *SessionStorage) Get(token string) (*Session, error) {
 	return &session, nil
 }
 
-// Delete - Deletes a session by its token.
+// Delete - deletes a session by its token.
 func (s *SessionStorage) Delete(token string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

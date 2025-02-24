@@ -13,11 +13,12 @@ import (
 
 type (
 	Config struct {
-		Engine  *EngineConfig  `yaml:"engine" json:"engine" xml:"engine"`
-		Network *NetworkConfig `yaml:"network" json:"network" xml:"network"`
-		Logging *LoggingConfig `yaml:"logging" json:"logging" xml:"logging"`
-		WAL     *WALConfig     `yaml:"wal" json:"wal" xml:"wal"`
-		Root    *RootConfig    `yaml:"root" json:"root" xml:"root"`
+		Engine      *EngineConfig      `yaml:"engine" json:"engine" xml:"engine"`
+		Network     *NetworkConfig     `yaml:"network" json:"network" xml:"network"`
+		Logging     *LoggingConfig     `yaml:"logging" json:"logging" xml:"logging"`
+		WAL         *WALConfig         `yaml:"wal" json:"wal" xml:"wal"`
+		Root        *RootConfig        `yaml:"root" json:"root" xml:"root"`
+		Replication *ReplicationConfig `yaml:"replication" json:"replication" xml:"replication"`
 
 		// -- default optional params
 		DefaultRoles      []RoleConfig      `yaml:"default_roles" json:"default_roles" xml:"default_roles"`
@@ -48,8 +49,11 @@ type (
 		PartitionNum int    `yaml:"partition_num" json:"partition_num" xml:"partition_num"`
 	}
 
-	LRUConfig struct {
-		Type string `yaml:"type" json:"type" xml:"type"`
+	ReplicationConfig struct {
+		ReplicaType       string        `yaml:"replica_type" json:"replica_type" xml:"replica_type"`
+		MasterAddress     string        `yaml:"master_address" json:"master_address" xml:"master_address"`
+		SyncInterval      time.Duration `yaml:"sync_interval" json:"sync_interval" xml:"sync_interval"`
+		MaxReplicasNumber int           `yaml:"max_replicas_number"`
 	}
 
 	NetworkConfig struct {

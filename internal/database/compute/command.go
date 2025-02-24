@@ -1,4 +1,4 @@
-package models
+package compute
 
 import (
 	"errors"
@@ -60,7 +60,7 @@ Available commands for users:
 `
 )
 
-// CommandType represents the id of a user command.
+// CommandType - represents the id of a user command.
 type CommandID int
 
 const (
@@ -70,10 +70,18 @@ const (
 	DelCommandID
 )
 
-// ErrInvalidCommand indicates an invalid command or incorrect arguments.
-var ErrInvalidCommand = errors.New("invalid command")
+var (
+	// ErrInvalidCommand - indicates an invalid command or incorrect arguments.
+	ErrInvalidCommand = errors.New("invalid command")
 
-// CommandType represents the type of a user command.
+	// ErrKeyNotFound - is returned when a key does not exist in the database.
+	ErrKeyNotFound = errors.New("key not found")
+
+	// ErrInvalidSyntax - is returned when a query has invalid syntax.
+	ErrInvalidSyntax = errors.New("invalid syntax")
+)
+
+// CommandType - represents the type of a user command.
 type CommandType string
 
 const (
@@ -87,7 +95,9 @@ const (
 	// User commands
 	CommandAUTH       CommandType = "login"
 	CommandCREATEUSER CommandType = "create user"
+	CommandDELETEUSER CommandType = "delete user"
 	CommandASSIGNROLE CommandType = "assign role"
+	CommandDIVESTROLE CommandType = "divest role"
 	CommandUSERS      CommandType = "users"
 	CommandME         CommandType = "me"
 
@@ -106,18 +116,18 @@ const (
 	CommandHELP CommandType = "help"
 )
 
-// String convert CommandType into string/
+// String - convert CommandType into string/
 func (cmd CommandType) String() string {
 	return string(cmd)
 }
 
-// Command represents a user command with a type and its arguments.
+// Command - represents a user command with a type and its arguments.
 type Command struct {
 	Type CommandType // The type of the command (GET, SET, DEL).
 	Args []string    // The arguments associated with the command.
 }
 
-// NewCommand creates a new instance of Command and validates it.
+// NewCommand - creates a new instance of Command and validates it.
 func NewCommand(commandType CommandType, args []string) (*Command, error) {
 	zapargs := []zap.Field{
 		zap.Stringer("cmd_type", commandType),
@@ -136,15 +146,17 @@ func NewCommand(commandType CommandType, args []string) (*Command, error) {
 	return cmd, nil
 }
 
-// Validate checks if the command type and arguments are valid.
+// Validate - checks if the command type and arguments are valid.
 func (cmd *Command) Validate() error {
 	switch cmd.Type {
 	case CommandGET, CommandDEL, CommandDELETEROLE,
-		CommandCREATENAMESPACE, CommandDELETENAMESPACE, CommandSETNS:
+		CommandCREATENAMESPACE, CommandDELETENAMESPACE,
+		CommandSETNS, CommandDELETEUSER:
 		if len(cmd.Args) != 1 {
 			return fmt.Errorf("%w: %s command requires exactly 1 argument", ErrInvalidCommand, cmd.Type)
 		}
-	case CommandAUTH, CommandASSIGNROLE, CommandSET, CommandCREATEUSER:
+	case CommandAUTH, CommandASSIGNROLE, CommandSET,
+		CommandCREATEUSER, CommandDIVESTROLE:
 		if len(cmd.Args) != 2 {
 			return fmt.Errorf("%w: %s command requires exactly 2 arguments", ErrInvalidCommand, cmd.Type)
 		}
@@ -152,7 +164,8 @@ func (cmd *Command) Validate() error {
 		if len(cmd.Args) != 3 {
 			return fmt.Errorf("%w: %s command requires exactly 3 arguments", ErrInvalidCommand, cmd.Type)
 		}
-	case CommandUSERS, CommandME, CommandROLES, CommandNAMESPACES, CommandHELP:
+	case CommandUSERS, CommandME, CommandROLES,
+		CommandNAMESPACES, CommandHELP:
 		if len(cmd.Args) > 0 {
 			return fmt.Errorf("%w: command '%s' does not accept arguments", ErrInvalidCommand, cmd.Type)
 		}

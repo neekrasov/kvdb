@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	models "github.com/neekrasov/kvdb/internal/database/models"
+	models "github.com/neekrasov/kvdb/internal/database/identity/models"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -347,7 +347,7 @@ func (_c *UsersStorage_Get_Call) RunAndReturn(run func(string) (*models.User, er
 	return _c
 }
 
-// ListUsernames provides a mock function with given fields:
+// ListUsernames provides a mock function with no fields
 func (_m *UsersStorage) ListUsernames() ([]string, error) {
 	ret := _m.Called()
 

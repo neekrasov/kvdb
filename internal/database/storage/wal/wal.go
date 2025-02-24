@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database/compute"
 	pkgSync "github.com/neekrasov/kvdb/pkg/sync"
 
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -18,7 +18,7 @@ import (
 // SegmentManager - interface for managing segments.
 type SegmentManager interface {
 	// Write - writes entries to the current segment.
-	Write(data []WriteEntry) error
+	Write(entries []WriteEntry, nolock bool) error
 	// ForEach - iterates through all segments.
 	ForEach(action func([]byte) error) error
 	// Close - closes the current segment.
@@ -57,7 +57,7 @@ func (w *WAL) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				if err := w.flushLocked(); err != nil {
+				if err := w.flush(); err != nil {
 					logger.Debug(baseErrMsg, zap.Error(err))
 				}
 				return
@@ -66,17 +66,17 @@ func (w *WAL) Start(ctx context.Context) {
 
 			select {
 			case <-ctx.Done():
-				if err := w.flushLocked(); err != nil {
+				if err := w.flush(); err != nil {
 					logger.Debug(baseErrMsg, zap.Error(err))
 				}
 				return
 			case <-w.batches:
-				if err := w.flushLocked(); err != nil {
+				if err := w.flush(); err != nil {
 					logger.Debug(baseErrMsg, zap.Error(err))
 				}
 				ticker.Reset(w.flushTimeout)
 			case <-ticker.C:
-				if err := w.flushLocked(); err != nil {
+				if err := w.flush(); err != nil {
 					logger.Debug(baseErrMsg, zap.Error(err))
 				}
 			}
@@ -86,16 +86,24 @@ func (w *WAL) Start(ctx context.Context) {
 
 // Set - push a set operation to the WAL.
 func (w *WAL) Set(key, value string) error {
-	return w.push(models.SetCommandID, []string{key, value})
+	if w == nil {
+		return nil
+	}
+
+	return w.push(compute.SetCommandID, []string{key, value})
 }
 
 // Delete - push a delete operation to the WAL.
 func (w *WAL) Del(key string) error {
-	return w.push(models.DelCommandID, []string{key})
+	if w == nil {
+		return nil
+	}
+
+	return w.push(compute.DelCommandID, []string{key})
 }
 
 // push - pushes a log entry to the batch.
-func (w *WAL) push(op models.CommandID, args []string) error {
+func (w *WAL) push(op compute.CommandID, args []string) error {
 	if w == nil {
 		return nil
 	}
@@ -117,10 +125,19 @@ func (w *WAL) push(op models.CommandID, args []string) error {
 	return we.future.Get()
 }
 
-// flushLocked - flushes the current batch to the segment.
-func (w *WAL) flushLocked() error {
+func (w *WAL) Flush(batch []WriteEntry) error {
+	if err := w.segmentManager.Write(batch, true); err != nil {
+		return fmt.Errorf("failed to write to segment: %w", err)
+	}
+
+	logger.Debug("force flush segments")
+	return nil
+}
+
+// flush - flushes the current batch to the segment.
+func (w *WAL) flush() error {
 	if len(w.batch) != 0 {
-		if err := w.segmentManager.Write(w.batch); err != nil {
+		if err := w.segmentManager.Write(w.batch, false); err != nil {
 			return fmt.Errorf("failed to write to segment: %w", err)
 		}
 

@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/pkg/sync"
 )
 
 // LogEntry - represents a single log entry.
 type LogEntry struct {
-	Operation models.CommandID
+	Operation compute.CommandID
 	Args      []string
 }
 
@@ -40,7 +40,7 @@ type WriteEntry struct {
 }
 
 // NewWriteEntry - creates a new WriteEntry.
-func NewWriteEntry(op models.CommandID, args []string) WriteEntry {
+func NewWriteEntry(op compute.CommandID, args []string) WriteEntry {
 	return WriteEntry{
 		log: LogEntry{
 			Operation: op,

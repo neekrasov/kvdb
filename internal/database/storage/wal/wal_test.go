@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/wal"
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -43,7 +43,7 @@ func TestWAL_SetAndDel(t *testing.T) {
 		{
 			name: "Success - Set key-value ticker flush",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
-				mockSegmentManager.On("Write", mock.Anything).Run(func(args mock.Arguments) {
+				mockSegmentManager.On("Write", mock.Anything, false).Run(func(args mock.Arguments) {
 					entries := args.Get(0).([]wal.WriteEntry)
 					for _, entry := range entries {
 						entry.Set(nil)
@@ -59,7 +59,7 @@ func TestWAL_SetAndDel(t *testing.T) {
 		{
 			name: "Success - Set key-value flush batches",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
-				mockSegmentManager.On("Write", mock.Anything).Run(func(args mock.Arguments) {
+				mockSegmentManager.On("Write", mock.Anything, false).Run(func(args mock.Arguments) {
 					entries := args.Get(0).([]wal.WriteEntry)
 					for _, entry := range entries {
 						entry.Set(nil)
@@ -82,7 +82,7 @@ func TestWAL_SetAndDel(t *testing.T) {
 		{
 			name: "Success - Delete key",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
-				mockSegmentManager.On("Write", mock.Anything).Run(func(args mock.Arguments) {
+				mockSegmentManager.On("Write", mock.Anything, false).Run(func(args mock.Arguments) {
 					entries := args.Get(0).([]wal.WriteEntry)
 					for _, entry := range entries {
 						entry.Set(nil)
@@ -98,7 +98,7 @@ func TestWAL_SetAndDel(t *testing.T) {
 		{
 			name: "Error - Write failed",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
-				mockSegmentManager.On("Write", mock.Anything).Run(func(args mock.Arguments) {
+				mockSegmentManager.On("Write", mock.Anything, false).Run(func(args mock.Arguments) {
 					time.Sleep(time.Millisecond * 5)
 					entries := args.Get(0).([]wal.WriteEntry)
 					for _, entry := range entries {
@@ -155,7 +155,7 @@ func TestWAL_Recover(t *testing.T) {
 				}).Return(nil).Once()
 			},
 			applyFunc: func(entry wal.LogEntry) error {
-				assert.Equal(t, models.SetCommandID, entry.Operation)
+				assert.Equal(t, compute.SetCommandID, entry.Operation)
 				assert.Equal(t, []string{"key1", "value1"}, entry.Args)
 				return nil
 			},
@@ -184,7 +184,7 @@ func TestWAL_Recover(t *testing.T) {
 				mockSegmentManager.On("ForEach", mock.Anything).Run(func(args mock.Arguments) {
 					action := args.Get(0).(func([]byte) error)
 					entry := wal.LogEntry{
-						Operation: models.SetCommandID,
+						Operation: compute.SetCommandID,
 						Args:      []string{"key1", "value1"},
 					}
 					var buffer bytes.Buffer
@@ -205,7 +205,7 @@ func TestWAL_Recover(t *testing.T) {
 				mockSegmentManager.On("ForEach", mock.Anything).Run(func(args mock.Arguments) {
 					action := args.Get(0).(func([]byte) error)
 					entry := wal.LogEntry{
-						Operation: models.SetCommandID,
+						Operation: compute.SetCommandID,
 						Args:      []string{"key1", "value1"},
 					}
 					var buffer bytes.Buffer

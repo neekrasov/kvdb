@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/wal"
@@ -87,7 +87,7 @@ func TestFileSegmentManager_Write(t *testing.T) {
 		{
 			name: "Success - Write entries to current segment",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(models.SetCommandID, []string{}),
+				wal.NewWriteEntry(compute.SetCommandID, []string{}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
@@ -100,7 +100,7 @@ func TestFileSegmentManager_Write(t *testing.T) {
 		{
 			name: "Error - Failed to write to segment",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(models.SetCommandID, []string{}),
+				wal.NewWriteEntry(compute.SetCommandID, []string{}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
@@ -126,11 +126,12 @@ func TestFileSegmentManager_Write(t *testing.T) {
 			for _, entry := range tt.entries {
 				go func() {
 					w.Done()
-					entry.Get()
+					err = entry.Get()
+					require.NoError(t, err)
 				}()
 			}
 
-			err = manager.Write(tt.entries)
+			err = manager.Write(tt.entries, false)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -158,23 +159,21 @@ func TestFileSegmentManager_Write_WithCompression(t *testing.T) {
 		{
 			name: "Success - Write entries with compression",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(models.SetCommandID, []string{"key", "value"}),
+				wal.NewWriteEntry(compute.SetCommandID, []string{"key", "value"}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment, mockCompressor *mocks.Compressor) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
-				mockStorage.EXPECT().Create(1, false).Return(mockSegment, nil)
+				mockStorage.EXPECT().Open(1).Return(mockSegment, nil)
 				mockSegment.EXPECT().ID().Return(1)
 				mockSegment.EXPECT().Size().Return(4 << 10)
 				mockSegment.EXPECT().Close().Return(nil)
 
-				mockStorage.EXPECT().Open(1).Return(mockSegment, nil)
-				mockSegment.EXPECT().Close().Return(nil)
 				mockSegment.EXPECT().Read(mock.Anything).Return(0, io.EOF)
 				mockStorage.EXPECT().Remove(1).Return(nil)
 				mockStorage.EXPECT().Create(1, true).Return(mockSegment, nil)
+				mockStorage.EXPECT().Create(2, false).Return(mockSegment, nil)
 				mockCompressor.EXPECT().Compress(mock.Anything).Return([]byte("compressed_data"), nil)
-				mockSegment.EXPECT().Write([]byte("compressed_data")).Return(0, nil)
-
+				mockSegment.EXPECT().Write([]byte("compressed_data")).Return(len([]byte("compressed_data")), nil)
 				mockSegment.EXPECT().Write(mock.Anything).Return(0, nil)
 			},
 			expectError: false,
@@ -189,23 +188,22 @@ func TestFileSegmentManager_Write_WithCompression(t *testing.T) {
 			tt.prepareMocks(mockStorage, mockSegment, mockCompressor)
 
 			manager, err := wal.NewFileSegmentManager(mockStorage,
-				wal.WithCompressor(mockCompressor), wal.WithMaxSegmentSize(0))
+				wal.WithCompressor(mockCompressor), wal.WithMaxSegmentSize(1))
 			require.NoError(t, err)
 
-			// Убедимся, что current сегмент инициализирован
 			manager.SetCurrent(mockSegment)
 
 			w := new(sync.WaitGroup)
 			w.Add(len(tt.entries))
 			for _, entry := range tt.entries {
-				go func() {
-					w.Done()
-					entry.Get()
-				}()
+				go func(e wal.WriteEntry) {
+					defer w.Done()
+					err = e.Get()
+					require.NoError(t, err)
+				}(entry)
 			}
 
-			// Записываем данные
-			err = manager.Write(tt.entries)
+			err = manager.Write(tt.entries, false)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -236,13 +234,14 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 
 				mockStorage.EXPECT().Open(1).Return(mockSegment, nil)
 				mockSegment.EXPECT().Close().Return(nil)
-				mockSegment.EXPECT().Compressed().Return(false)
 				mockSegment.EXPECT().Read(mock.Anything).Return(0, io.EOF)
+				mockSegment.EXPECT().Compressed().Return(false).Once()
 
 				mockStorage.EXPECT().Open(2).Return(mockSegment, nil)
 				mockSegment.EXPECT().Close().Return(nil)
-				mockSegment.EXPECT().Compressed().Return(true)
 				mockSegment.EXPECT().Read(mock.Anything).Return(0, io.EOF)
+				mockSegment.EXPECT().Compressed().Return(true).Once()
+				mockCompressor.EXPECT().Decompress([]uint8{}).Return(nil, nil)
 			},
 			action: func(b []byte) error {
 				return nil
@@ -252,23 +251,18 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 		{
 			name: "Error - Failed to decompress segment",
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment, mockCompressor *mocks.Compressor) {
-				mockStorage.EXPECT().List().Return([]int{1}, nil)
+				mockStorage.EXPECT().List().Return([]int{1, 2}, nil)
+
 				mockStorage.EXPECT().Open(1).Return(mockSegment, nil)
 				mockSegment.EXPECT().Close().Return(nil)
-				mockSegment.EXPECT().Compressed().Return(true)
-				mockSegment.EXPECT().Size().Return(0)
-				mockSegment.EXPECT().Read(mock.Anything).Return(0, io.EOF) // Ожидаем вызов Read
-				mockCompressor.EXPECT().Decompress(mock.Anything).Return(nil, errors.New("decompress error"))
-			},
-			action: func(b []byte) error {
-				return nil
-			},
-			expectError: true,
-		},
-		{
-			name: "Error - Cannot find first segment",
-			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment, mockCompressor *mocks.Compressor) {
-				mockStorage.EXPECT().List().Return([]int{2}, nil)
+				mockSegment.EXPECT().Read(mock.Anything).Return(0, io.EOF)
+				mockSegment.EXPECT().Compressed().Return(false).Once()
+
+				mockStorage.EXPECT().Open(2).Return(mockSegment, nil)
+				mockSegment.EXPECT().Close().Return(nil)
+				mockSegment.EXPECT().Read(mock.Anything).Return(0, io.EOF)
+				mockSegment.EXPECT().Compressed().Return(true).Once()
+				mockCompressor.EXPECT().Decompress([]uint8{}).Return(nil, errors.New("some error"))
 			},
 			action: func(b []byte) error {
 				return nil
@@ -299,7 +293,6 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 			},
 			expectError: true,
 		},
-
 		{
 			name: "Success - Nil Action",
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment, mockCompressor *mocks.Compressor) {
@@ -307,22 +300,6 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 			},
 			action:      nil,
 			expectError: false,
-		},
-		{
-			name: "Error - Failed to decompress segment",
-			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment, mockCompressor *mocks.Compressor) {
-				mockStorage.EXPECT().List().Return([]int{1}, nil)
-				mockStorage.EXPECT().Open(1).Return(mockSegment, nil)
-				mockSegment.EXPECT().Close().Return(nil)
-				mockSegment.EXPECT().Compressed().Return(true)
-				mockSegment.EXPECT().Size().Return(0)
-				mockSegment.EXPECT().Read(mock.Anything).Return(0, io.EOF) // Ожидаем вызов Read
-				mockCompressor.EXPECT().Decompress(mock.Anything).Return(nil, nil)
-			},
-			action: func(b []byte) error {
-				return errors.New("test")
-			},
-			expectError: true,
 		},
 	}
 

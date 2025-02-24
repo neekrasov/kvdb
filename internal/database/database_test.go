@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	"github.com/neekrasov/kvdb/internal/config"
-	"github.com/neekrasov/kvdb/internal/database/models"
-	"github.com/neekrasov/kvdb/internal/database/storage"
+	"github.com/neekrasov/kvdb/internal/database/compute"
+	"github.com/neekrasov/kvdb/internal/database/identity"
+	"github.com/neekrasov/kvdb/internal/database/identity/models"
 	dbMock "github.com/neekrasov/kvdb/internal/mocks/database"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +36,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			expected: "[error] parse input failed: parse error",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
 				p.On("Parse", "invalid query").Return(
-					&models.Command{Type: models.CommandSET, Args: []string{"key", "value"}},
+					&compute.Command{Type: compute.CommandSET, Args: []string{"key", "value"}},
 					errors.New("parse error")).Once()
 			},
 		},
@@ -55,7 +56,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			expected: "[error] permission denied",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
 				p.On("Parse", "create_user username password").Return(
-					&models.Command{Type: models.CommandCREATEUSER, Args: []string{"username", "password"}}, nil).Once()
+					&compute.Command{Type: compute.CommandCREATEUSER, Args: []string{"username", "password"}}, nil).Once()
 			},
 		},
 		{
@@ -65,7 +66,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			expected: "[ok] value",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
 				p.On("Parse", "set key value").Return(
-					&models.Command{Type: models.CommandSET, Args: []string{"key", "value"}}, nil).Once()
+					&compute.Command{Type: compute.CommandSET, Args: []string{"key", "value"}}, nil).Once()
 				s.On("Set", mock.Anything, mock.Anything).Return(nil).Once()
 			},
 		},
@@ -75,7 +76,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin", Cur: models.Role{Del: true, Namespace: "default"}},
 			expected: "[ok] key",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "del key").Return(&models.Command{Type: models.CommandDEL, Args: []string{"key"}}, nil).Once()
+				p.On("Parse", "del key").Return(&compute.Command{Type: compute.CommandDEL, Args: []string{"key"}}, nil).Once()
 				s.On("Del", "default:key").Return(nil).Once()
 			},
 		},
@@ -85,7 +86,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin", Cur: models.Role{Get: true, Namespace: "default"}},
 			expected: "[ok] value",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "get key").Return(&models.Command{Type: models.CommandGET, Args: []string{"key"}}, nil).Once()
+				p.On("Parse", "get key").Return(&compute.Command{Type: compute.CommandGET, Args: []string{"key"}}, nil).Once()
 				s.On("Get", "default:key").Return("value", nil).Once()
 			},
 		},
@@ -95,7 +96,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin", Cur: models.Role{Set: true, Namespace: "default"}},
 			expected: "[ok] value",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "set key value").Return(&models.Command{Type: models.CommandSET, Args: []string{"key", "value"}}, nil).Once()
+				p.On("Parse", "set key value").Return(&compute.Command{Type: compute.CommandSET, Args: []string{"key", "value"}}, nil).Once()
 				s.On("Set", "default:key", "value").Return(nil).Once()
 			},
 		},
@@ -105,7 +106,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin"},
 			expected: "[ok] admin",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "create user username password").Return(&models.Command{Type: models.CommandCREATEUSER, Args: []string{"username", "password"}}, nil).Once()
+				p.On("Parse", "create user username password").Return(&compute.Command{Type: compute.CommandCREATEUSER, Args: []string{"username", "password"}}, nil).Once()
 				us.On("Create", "username", "password").Return(&models.User{Username: "admin"}, nil).Once()
 				us.On("Append", "admin").Return([]string{}, nil).Once()
 			},
@@ -116,7 +117,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin"},
 			expected: "[ok]",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "assign role username role").Return(&models.Command{Type: models.CommandASSIGNROLE, Args: []string{"username", "role"}}, nil).Once()
+				p.On("Parse", "assign role username role").Return(&compute.Command{Type: compute.CommandASSIGNROLE, Args: []string{"username", "role"}}, nil).Once()
 				rs.On("Get", "role").Return(&models.Role{Name: "role"}, nil).Once()
 				us.On("AssignRole", "username", "role").Return(nil).Once()
 			},
@@ -127,7 +128,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin"},
 			expected: "[ok] user1 user2",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "users").Return(&models.Command{Type: models.CommandUSERS, Args: []string{}}, nil).Once()
+				p.On("Parse", "users").Return(&compute.Command{Type: compute.CommandUSERS, Args: []string{}}, nil).Once()
 				us.On("ListUsernames").Return([]string{"user1", "user2"}, nil).Once()
 			},
 		},
@@ -137,9 +138,9 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin"},
 			expected: "[ok]",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "create role role rwd namespace").Return(&models.Command{Type: models.CommandCREATEROLE, Args: []string{"role", "rwd", "namespace"}}, nil).Once()
+				p.On("Parse", "create role role rwd namespace").Return(&compute.Command{Type: compute.CommandCREATEROLE, Args: []string{"role", "rwd", "namespace"}}, nil).Once()
 				ns.On("Exists", "namespace").Return(true).Once()
-				rs.On("Get", "role").Return(nil, models.ErrRoleNotFound).Once()
+				rs.On("Get", "role").Return(nil, identity.ErrRoleNotFound).Once()
 				rs.On("Save", mock.Anything).Return(nil).Once()
 				rs.On("Append", "role").Return(nil, nil).Once()
 			},
@@ -150,7 +151,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin"},
 			expected: "[ok]",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "delete role role").Return(&models.Command{Type: models.CommandDELETEROLE, Args: []string{"role"}}, nil).Once()
+				p.On("Parse", "delete role role").Return(&compute.Command{Type: compute.CommandDELETEROLE, Args: []string{"role"}}, nil).Once()
 				us.On("ListUsernames").Return([]string{}, nil).Once()
 				rs.On("Delete", "role").Return(nil).Once()
 			},
@@ -161,7 +162,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin"},
 			expected: "[ok] role1, role2",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "roles").Return(&models.Command{Type: models.CommandROLES, Args: []string{}}, nil).Once()
+				p.On("Parse", "roles").Return(&compute.Command{Type: compute.CommandROLES, Args: []string{}}, nil).Once()
 				rs.On("List").Return([]string{"role1", "role2"}, nil).Once()
 			},
 		},
@@ -171,7 +172,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "user", Roles: []string{"role1"}, Cur: models.Role{Namespace: "default", Get: true, Set: true, Del: true}},
 			expected: "[ok] user: 'user', roles: 'role1', ns: 'default', perms: 'rwd'",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "me").Return(&models.Command{Type: models.CommandME, Args: []string{}}, nil).Once()
+				p.On("Parse", "me").Return(&compute.Command{Type: compute.CommandME, Args: []string{}}, nil).Once()
 			},
 		},
 		{
@@ -180,7 +181,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin"},
 			expected: "[ok]",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "create ns namespace").Return(&models.Command{Type: models.CommandCREATENAMESPACE, Args: []string{"namespace"}}, nil).Once()
+				p.On("Parse", "create ns namespace").Return(&compute.Command{Type: compute.CommandCREATENAMESPACE, Args: []string{"namespace"}}, nil).Once()
 				ns.On("Save", "namespace").Return(nil).Once()
 				ns.On("Append", "namespace").Return(nil, nil).Once()
 			},
@@ -191,7 +192,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "admin"},
 			expected: "[ok]",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "delete ns namespace").Return(&models.Command{Type: models.CommandDELETENAMESPACE, Args: []string{"namespace"}}, nil).Once()
+				p.On("Parse", "delete ns namespace").Return(&compute.Command{Type: compute.CommandDELETENAMESPACE, Args: []string{"namespace"}}, nil).Once()
 				ns.On("Delete", "namespace").Return(nil).Once()
 			},
 		},
@@ -201,7 +202,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 			user:     &models.User{Username: "user", Roles: []string{"role1"}, Cur: models.Role{Namespace: "default"}},
 			expected: "[ok]",
 			prepareMocks: func(p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage) {
-				p.On("Parse", "set ns namespace").Return(&models.Command{Type: models.CommandSETNS, Args: []string{"namespace"}}, nil).Once()
+				p.On("Parse", "set ns namespace").Return(&compute.Command{Type: compute.CommandSETNS, Args: []string{"namespace"}}, nil).Once()
 				ns.On("Exists", "namespace").Return(true).Once()
 				rs.On("Get", "role1").Return(&models.Role{Namespace: "namespace"}, nil).Once()
 			},
@@ -264,20 +265,20 @@ func TestDatabase_Login(t *testing.T) {
 			err:   errors.New("authentication failed"),
 			prepareMocks: func(p *dbMock.Parser, us *dbMock.UsersStorage, ss *dbMock.SessionStorage) {
 				p.On("Parse", "auth username password").Return(
-					&models.Command{
-						Type: models.CommandAUTH, Args: []string{"username", "password"},
+					&compute.Command{
+						Type: compute.CommandAUTH, Args: []string{"username", "password"},
 					}, nil)
-				us.On("Authenticate", "username", "password").Return(nil, models.ErrAuthenticationFailed)
+				us.On("Authenticate", "username", "password").Return(nil, identity.ErrAuthenticationFailed)
 			},
 		},
 		{
 			name:  "authentication failed, nil usr",
 			query: "auth username password",
-			err:   models.ErrAuthenticationRequired,
+			err:   ErrAuthenticationRequired,
 			prepareMocks: func(p *dbMock.Parser, us *dbMock.UsersStorage, ss *dbMock.SessionStorage) {
 				p.On("Parse", "auth username password").Return(
-					&models.Command{
-						Type: models.CommandAUTH, Args: []string{"username", "password"},
+					&compute.Command{
+						Type: compute.CommandAUTH, Args: []string{"username", "password"},
 					}, nil)
 				us.On("Authenticate", "username", "password").Return(nil, nil)
 			},
@@ -289,8 +290,8 @@ func TestDatabase_Login(t *testing.T) {
 			expected: &models.User{Username: "username", Token: "token"},
 			prepareMocks: func(p *dbMock.Parser, us *dbMock.UsersStorage, ss *dbMock.SessionStorage) {
 				p.On("Parse", "auth username password").Return(
-					&models.Command{
-						Type: models.CommandAUTH, Args: []string{"username", "password"},
+					&compute.Command{
+						Type: compute.CommandAUTH, Args: []string{"username", "password"},
 					}, nil)
 				us.On("Authenticate", "username", "password").Return(&models.User{Username: "username"}, nil)
 				ss.On("Create", "username").Return("token", nil)
@@ -324,7 +325,7 @@ func TestDatabase_Login(t *testing.T) {
 }
 
 func TestDatabase_Logout(t *testing.T) {
-	mockSessionStorage := storage.NewSessionStorage()
+	mockSessionStorage := identity.NewSessionStorage()
 	db := &Database{
 		sessions: mockSessionStorage,
 	}

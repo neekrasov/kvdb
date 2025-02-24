@@ -72,7 +72,7 @@ func (fss *FileSegmentStorage) Open(id int) (wal.Segment, error) {
 	if _, err := fss.fs.Stat(path); os.IsNotExist(err) {
 		path += ".gzip"
 		if _, err := fss.fs.Stat(path); os.IsNotExist(err) {
-			return nil, fmt.Errorf("segment with id %d not found", id)
+			return nil, wal.ErrSegmentNotFound
 		} else {
 			compressed = true
 		}
@@ -91,6 +91,7 @@ func (fss *FileSegmentStorage) Open(id int) (wal.Segment, error) {
 	logger.Debug("openned segment",
 		zap.String("filename", path),
 		zap.Bool("compressed", compressed),
+		zap.Int64("size", info.Size()),
 		zap.Int("id", id))
 
 	return NewSegment(id, int(info.Size()), compressed, file), nil

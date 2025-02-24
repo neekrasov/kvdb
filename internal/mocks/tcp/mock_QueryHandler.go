@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	models "github.com/neekrasov/kvdb/internal/database/models"
+	models "github.com/neekrasov/kvdb/internal/database/identity/models"
 	mock "github.com/stretchr/testify/mock"
 )
 

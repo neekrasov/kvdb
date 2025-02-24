@@ -2,10 +2,8 @@ package wal
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"sync"
 
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -13,7 +11,9 @@ import (
 )
 
 // defaultMaxSegmentSize - is 4KB.
-const defaultMaxSegmentSize = 4 << 10
+const (
+	defaultMaxSegmentSize = 4 << 20
+)
 
 type (
 	// Compressor - interface for data compression and decompression.
@@ -94,7 +94,7 @@ func NewFileSegmentManager(storage SegmentStorage, opts ...FileSegmentManagerOpt
 }
 
 // Write - writes entries to the current segment.
-func (fsm *FileSegmentManager) Write(entries []WriteEntry) error {
+func (fsm *FileSegmentManager) Write(entries []WriteEntry, nolock bool) error {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 
@@ -105,12 +105,17 @@ func (fsm *FileSegmentManager) Write(entries []WriteEntry) error {
 			err := fmt.Errorf(
 				"encode op %d with args %v failed: %w",
 				log.Operation, log.Args, err)
-			fsm.ackEntries(entries, err)
+
+			if !nolock {
+				fsm.ackEntries(entries, err)
+			}
+
 			return err
 		}
 	}
 
-	if fsm.current != nil && fsm.current.Size()+buf.Len() > fsm.maxSegmentSize {
+	defaultOffset := fsm.maxSegmentSize / 10
+	if fsm.current != nil && fsm.current.Size()+defaultOffset+buf.Len() > fsm.maxSegmentSize {
 		logger.Debug("rotate segment",
 			zap.Int("size", fsm.current.Size()),
 			zap.Int("id", fsm.current.ID()))
@@ -137,29 +142,29 @@ func (fsm *FileSegmentManager) Write(entries []WriteEntry) error {
 		return fmt.Errorf("failed to write to segment: %w", err)
 	}
 
-	fsm.ackEntries(entries, nil)
+	if !nolock {
+		fsm.ackEntries(entries, nil)
+	}
+
 	return nil
 }
 
 // rotate - rotates to a new segment.
 func (fsm *FileSegmentManager) rotate() error {
 	var sID int
-	if length := len(fsm.segments); length > 0 {
-		sID = fsm.segments[length-1]
-	} else {
-		sID = 1
-	}
-
 	if fsm.current != nil {
 		if err := fsm.current.Close(); err != nil {
 			return fmt.Errorf("failed to close current segment: %w", err)
 		}
 
 		if fsm.compressor != nil {
-			if err := fsm.compress(sID); err != nil {
-				logger.Error("failed to compress segment", zap.Int("segment_id", sID), zap.Error(err))
+			if err := fsm.compress(fsm.current.ID()); err != nil {
+				logger.Error("failed to compress segment", zap.Int("segment_id", fsm.current.ID()), zap.Error(err))
 			}
 		}
+		sID = fsm.current.ID() + 1
+	} else {
+		sID = 1
 	}
 
 	writer, err := fsm.storage.Create(sID, false)
@@ -168,7 +173,7 @@ func (fsm *FileSegmentManager) rotate() error {
 	}
 
 	fsm.current = writer
-	fsm.segments = append(fsm.segments, sID+1)
+	fsm.segments = append(fsm.segments, sID)
 	return nil
 }
 
@@ -231,43 +236,19 @@ func (fsm *FileSegmentManager) ForEach(action func([]byte) error) error {
 		return nil
 	}
 
-	fsm.mu.Lock()
-	defer fsm.mu.Unlock()
-
-	logger.Debug("for each segments", zap.Ints("segments", fsm.segments))
-
-	if !slices.Contains(fsm.segments, 1) {
-		return errors.New("cannot find first segment")
-	}
-
-	for _, id := range fsm.segments {
-		segment, err := fsm.storage.Open(id)
+	iterator := NewSegmentIterator(fsm.storage, fsm.compressor)
+	for _, n := range fsm.segments {
+		data, err := iterator.Next(n)
 		if err != nil {
-			return fmt.Errorf("failed to open segment %d: %w", id, err)
-		}
-		defer segment.Close()
-
-		data, err := io.ReadAll(segment)
-		if err != nil {
-			return fmt.Errorf("read segment for decompress failed: %w", err)
-		}
-
-		if segment.Compressed() {
-			if fsm.compressor == nil {
-				return errors.New("error decompress compressed segment, compressor not initialized")
+			if err == io.EOF {
+				break
 			}
 
-			logger.Debug("decompress segment",
-				zap.Int("id", id),
-				zap.Int("size", segment.Size()))
-			data, err = fsm.compressor.Decompress(data)
-			if err != nil {
-				return fmt.Errorf("decompress segment failed: %w", err)
-			}
+			return fmt.Errorf("iteration failed: %w", err)
 		}
 
 		if err := action(data); err != nil {
-			return fmt.Errorf("execute for each action failed: %w", err)
+			return fmt.Errorf("action failed (s.num %d): %w", n, err)
 		}
 	}
 

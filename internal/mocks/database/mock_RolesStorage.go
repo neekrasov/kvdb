@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	models "github.com/neekrasov/kvdb/internal/database/models"
+	models "github.com/neekrasov/kvdb/internal/database/identity/models"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -182,7 +182,7 @@ func (_c *RolesStorage_Get_Call) RunAndReturn(run func(string) (*models.Role, er
 	return _c
 }
 
-// List provides a mock function with given fields:
+// List provides a mock function with no fields
 func (_m *RolesStorage) List() ([]string, error) {
 	ret := _m.Called()
 

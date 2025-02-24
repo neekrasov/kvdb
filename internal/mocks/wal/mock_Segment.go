@@ -17,7 +17,7 @@ func (_m *Segment) EXPECT() *Segment_Expecter {
 	return &Segment_Expecter{mock: &_m.Mock}
 }
 
-// Close provides a mock function with given fields:
+// Close provides a mock function with no fields
 func (_m *Segment) Close() error {
 	ret := _m.Called()
 
@@ -62,7 +62,7 @@ func (_c *Segment_Close_Call) RunAndReturn(run func() error) *Segment_Close_Call
 	return _c
 }
 
-// Compressed provides a mock function with given fields:
+// Compressed provides a mock function with no fields
 func (_m *Segment) Compressed() bool {
 	ret := _m.Called()
 
@@ -107,7 +107,7 @@ func (_c *Segment_Compressed_Call) RunAndReturn(run func() bool) *Segment_Compre
 	return _c
 }
 
-// ID provides a mock function with given fields:
+// ID provides a mock function with no fields
 func (_m *Segment) ID() int {
 	ret := _m.Called()
 
@@ -208,7 +208,7 @@ func (_c *Segment_Read_Call) RunAndReturn(run func([]byte) (int, error)) *Segmen
 	return _c
 }
 
-// Size provides a mock function with given fields:
+// Size provides a mock function with no fields
 func (_m *Segment) Size() int {
 	ret := _m.Called()
 

@@ -11,6 +11,12 @@ packages:
       FileSystem:
       Sizer:
       DirEntry:
+  github.com/neekrasov/kvdb/internal/database/storage/replication:
+    interfaces:
+      NetServer:
+      Iterator:
+      NetClient:
+      WAL:
   github.com/neekrasov/kvdb/internal/database/storage/wal:
     interfaces:
       Compressor:

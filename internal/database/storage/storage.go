@@ -1,12 +1,19 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/neekrasov/kvdb/internal/database/models"
+	"github.com/neekrasov/kvdb/internal/database/compute"
+	"github.com/neekrasov/kvdb/internal/database/storage/replication"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
+)
+
+var (
+	ErrorMutableOp = errors.New("mutable operation on slave")
+	ErrKeyNotFound = errors.New("key not found")
 )
 
 type (
@@ -23,16 +30,22 @@ type (
 		Del(key string) error
 		Recover(applyFunc func(entry wal.LogEntry) error) error
 	}
+
+	Replica interface {
+		IsMaster() bool
+	}
 )
 
-// Storage - A struct that provides a higher-level abstraction
+// Storage - struct that provides a higher-level abstraction
 // over the Engine interface for key-value storage operations.
 type Storage struct {
-	engine Engine
-	wal    WAL
+	stream  replication.Stream
+	replica Replica
+	engine  Engine
+	wal     WAL
 }
 
-// NewStorage - Initializes and returns a new Storage instance with the provided storage engine.
+// NewStorage - initializes and returns a new Storage instance with the provided storage engine.
 func NewStorage(
 	engine Engine,
 	opts ...StorageOpt,
@@ -48,11 +61,32 @@ func NewStorage(
 		}
 	}
 
+	if s.stream != nil {
+		go func() {
+			for logs := range s.stream {
+				for _, log := range logs {
+					err := s.applyFunc(log)
+					if err != nil {
+						logger.Warn("apply operaion failed",
+							zap.Int("operation", int(log.Operation)),
+							zap.Strings("args", log.Args),
+							zap.Error(err),
+						)
+					}
+				}
+			}
+		}()
+	}
+
 	return s, nil
 }
 
-// Set - Stores a key-value pair in the storage
+// Set - stores a key-value pair in the storage
 func (s *Storage) Set(key, value string) error {
+	if s.replica != nil && !s.replica.IsMaster() {
+		return ErrorMutableOp
+	}
+
 	err := s.wal.Set(key, value)
 	if err != nil {
 		return err
@@ -62,18 +96,22 @@ func (s *Storage) Set(key, value string) error {
 	return nil
 }
 
-// Get - Retrieves the value associated with a key from the storage
+// Get - retrieves the value associated with a key from the storage
 func (s *Storage) Get(key string) (string, error) {
 	val, exists := s.engine.Get(key)
 	if !exists {
-		return "", models.ErrKeyNotFound
+		return "", ErrKeyNotFound
 	}
 
 	return val, nil
 }
 
-// Del - Deletes a key-value pair from the storage.
+// Del - deletes a key-value pair from the storage.
 func (s *Storage) Del(key string) error {
+	if s.replica != nil && !s.replica.IsMaster() {
+		return ErrorMutableOp
+	}
+
 	err := s.wal.Del(key)
 	if err != nil {
 		return err
@@ -82,21 +120,21 @@ func (s *Storage) Del(key string) error {
 	return s.engine.Del(key)
 }
 
-// MakeKey - Constructs a key by combining a namespace and a key name using a colon (:).
+// MakeKey - constructs a key by combining a namespace and a key name using a colon (:).
 func MakeKey(namespace, key string) string {
 	return namespace + ":" + key
 }
 
 func (s *Storage) applyFunc(entry wal.LogEntry) error {
 	switch entry.Operation {
-	case models.SetCommandID:
+	case compute.SetCommandID:
 		s.engine.Set(entry.Args[0], entry.Args[1])
-	case models.DelCommandID:
+	case compute.DelCommandID:
 		err := s.engine.Del(entry.Args[0])
 		if err != nil {
 			return fmt.Errorf("apply del (%s) failed: %w", entry.Args[0], err)
 		}
-	case models.UnknownCommandID:
+	case compute.UnknownCommandID:
 		return nil
 	default:
 		return fmt.Errorf("unrecognized command (id: %d, args %v)", entry.Operation, entry.Args)

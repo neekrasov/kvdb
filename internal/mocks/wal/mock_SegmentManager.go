@@ -20,7 +20,7 @@ func (_m *SegmentManager) EXPECT() *SegmentManager_Expecter {
 	return &SegmentManager_Expecter{mock: &_m.Mock}
 }
 
-// Close provides a mock function with given fields:
+// Close provides a mock function with no fields
 func (_m *SegmentManager) Close() error {
 	ret := _m.Called()
 
@@ -111,17 +111,17 @@ func (_c *SegmentManager_ForEach_Call) RunAndReturn(run func(func([]byte) error)
 	return _c
 }
 
-// Write provides a mock function with given fields: data
-func (_m *SegmentManager) Write(data []wal.WriteEntry) error {
-	ret := _m.Called(data)
+// Write provides a mock function with given fields: entries, nolock
+func (_m *SegmentManager) Write(entries []wal.WriteEntry, nolock bool) error {
+	ret := _m.Called(entries, nolock)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Write")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]wal.WriteEntry) error); ok {
-		r0 = rf(data)
+	if rf, ok := ret.Get(0).(func([]wal.WriteEntry, bool) error); ok {
+		r0 = rf(entries, nolock)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -135,14 +135,15 @@ type SegmentManager_Write_Call struct {
 }
 
 // Write is a helper method to define mock.On call
-//   - data []wal.WriteEntry
-func (_e *SegmentManager_Expecter) Write(data interface{}) *SegmentManager_Write_Call {
-	return &SegmentManager_Write_Call{Call: _e.mock.On("Write", data)}
+//   - entries []wal.WriteEntry
+//   - nolock bool
+func (_e *SegmentManager_Expecter) Write(entries interface{}, nolock interface{}) *SegmentManager_Write_Call {
+	return &SegmentManager_Write_Call{Call: _e.mock.On("Write", entries, nolock)}
 }
 
-func (_c *SegmentManager_Write_Call) Run(run func(data []wal.WriteEntry)) *SegmentManager_Write_Call {
+func (_c *SegmentManager_Write_Call) Run(run func(entries []wal.WriteEntry, nolock bool)) *SegmentManager_Write_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]wal.WriteEntry))
+		run(args[0].([]wal.WriteEntry), args[1].(bool))
 	})
 	return _c
 }
@@ -152,7 +153,7 @@ func (_c *SegmentManager_Write_Call) Return(_a0 error) *SegmentManager_Write_Cal
 	return _c
 }
 
-func (_c *SegmentManager_Write_Call) RunAndReturn(run func([]wal.WriteEntry) error) *SegmentManager_Write_Call {
+func (_c *SegmentManager_Write_Call) RunAndReturn(run func([]wal.WriteEntry, bool) error) *SegmentManager_Write_Call {
 	_c.Call.Return(run)
 	return _c
 }
