@@ -67,6 +67,10 @@ func NewServer(address string, opts ...ServerOption) (*Server, error) {
 
 // Start - Starts the TCP server listening on the specified address.
 func (s *Server) Start(ctx context.Context, handler Handler) {
+	if ctx.Err() != nil {
+		return
+	}
+
 	go func() {
 		for {
 			conn, err := s.listener.Accept()

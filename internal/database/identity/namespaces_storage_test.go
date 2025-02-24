@@ -39,7 +39,7 @@ func TestNamespaceStorage(t *testing.T) {
 		key := storage.MakeKey(models.SystemNamespaceNameSpace, namespace)
 
 		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
-		mockStorage.On("Set", key, "{}").Return(nil).Once()
+		mockStorage.On("Set", key, "").Return(nil).Once()
 
 		err := nsStorage.Save(namespace)
 		assert.NoError(t, err)
