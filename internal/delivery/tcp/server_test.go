@@ -48,7 +48,7 @@ func TestServer(t *testing.T) {
 	defer server.Close()
 
 	go func() {
-		server.Start(ctx, func(ctx context.Context, data []byte) []byte {
+		server.Start(ctx, func(ctx context.Context, _ string, data []byte) []byte {
 			return []byte("[ok] " + string(data))
 		})
 	}()

@@ -158,6 +158,7 @@ func TestUsersStorage(t *testing.T) {
 		user := models.User{Username: "testUser", Password: "testPass"}
 		key := storage.MakeKey(models.SystemUserNameSpace, user.Username)
 
+		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
 		mockStorage.On("Set", key, mock.Anything).Return(nil).Once()
 
 		err := usersStorage.SaveRaw(&user)

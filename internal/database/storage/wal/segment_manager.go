@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/neekrasov/kvdb/internal/database/compression"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -16,14 +17,6 @@ const (
 )
 
 type (
-	// Compressor - interface for data compression and decompression.
-	Compressor interface {
-		// Compress - compresses input data ([]byte) using some compress algorithm.
-		Compress(data []byte) ([]byte, error)
-		// Decompress - decompresses compressed data ([]byte) compressed using some compress algorithm.
-		Decompress(data []byte) ([]byte, error)
-	}
-
 	// SegmentStorage - interface for managing storage segments.
 	SegmentStorage interface {
 		// Create - creates a new segment file.
@@ -56,7 +49,7 @@ type (
 // FileSegmentManager - manages file-based storage segments.
 type FileSegmentManager struct {
 	storage        SegmentStorage
-	compressor     Compressor
+	compression    compression.Compressor
 	maxSegmentSize int
 
 	mu       sync.Mutex
@@ -157,7 +150,7 @@ func (fsm *FileSegmentManager) rotate() error {
 			return fmt.Errorf("failed to close current segment: %w", err)
 		}
 
-		if fsm.compressor != nil {
+		if fsm.compression != nil {
 			if err := fsm.compress(fsm.current.ID()); err != nil {
 				logger.Error("failed to compress segment", zap.Int("segment_id", fsm.current.ID()), zap.Error(err))
 			}
@@ -207,7 +200,7 @@ func (fsm *FileSegmentManager) compress(id int) error {
 		return err
 	}
 
-	compressed, err := fsm.compressor.Compress(data)
+	compressed, err := fsm.compression.Compress(data)
 	if err != nil {
 		return fmt.Errorf("failed to compress segment %d: %w", id, err)
 	}
@@ -236,7 +229,7 @@ func (fsm *FileSegmentManager) ForEach(action func([]byte) error) error {
 		return nil
 	}
 
-	iterator := NewSegmentIterator(fsm.storage, fsm.compressor)
+	iterator := NewSegmentIterator(fsm.storage, fsm.compression)
 	for _, n := range fsm.segments {
 		data, err := iterator.Next(n)
 		if err != nil {

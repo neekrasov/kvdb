@@ -20,9 +20,7 @@ type RolesStorage struct {
 }
 
 // NewRolesStorage - initializes and returns a new RolesStorage instance with the provided storage engine.
-func NewRolesStorage(
-	storage Storage,
-) *RolesStorage {
+func NewRolesStorage(storage Storage) *RolesStorage {
 	return &RolesStorage{storage: storage}
 }
 

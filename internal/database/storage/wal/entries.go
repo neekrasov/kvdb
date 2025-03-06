@@ -60,7 +60,7 @@ func (l *WriteEntry) Get() error {
 	return l.future.Get()
 }
 
-// Log -  returns the LogEntry.
+// Log - returns the LogEntry.
 func (l *WriteEntry) Log() LogEntry {
 	return l.log
 }

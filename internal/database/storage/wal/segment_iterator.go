@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/neekrasov/kvdb/internal/database/compression"
 )
 
 // ErrSegmentNotFound - error returned when the requested segment is not found in storage.
@@ -11,15 +13,15 @@ var ErrSegmentNotFound = errors.New("segment not found")
 
 // SegmentIterator - struct for iterating over stored segments, with optional decompression support.
 type SegmentIterator struct {
-	storage    SegmentStorage
-	compressor Compressor
+	storage     SegmentStorage
+	compression compression.Compressor
 }
 
 // NewSegmentIterator - constructor function that creates a new SegmentIterator.
-func NewSegmentIterator(storage SegmentStorage, compressor Compressor) *SegmentIterator {
+func NewSegmentIterator(storage SegmentStorage, compression compression.Compressor) *SegmentIterator {
 	return &SegmentIterator{
-		storage:    storage,
-		compressor: compressor,
+		storage:     storage,
+		compression: compression,
 	}
 }
 
@@ -42,11 +44,11 @@ func (si *SegmentIterator) Next(num int) ([]byte, error) {
 	}
 
 	if seg.Compressed() {
-		if si.compressor == nil {
-			return nil, errors.New("compressor not initialized, cannot decompress segment")
+		if si.compression == nil {
+			return nil, errors.New("compression not initialized, cannot decompress segment")
 		}
 
-		data, err = si.compressor.Decompress(data)
+		data, err = si.compression.Decompress(data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decompress segment %d: %w", num, err)
 		}

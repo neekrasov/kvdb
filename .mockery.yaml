@@ -40,5 +40,6 @@ packages:
       QueryHandler:
   github.com/neekrasov/kvdb/pkg/client:
     interfaces:
-      Client:
-      ClientFactory:
+      NetClient:
+      NetClientFactory:
+      Parser:

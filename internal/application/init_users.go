@@ -22,10 +22,10 @@ func initUserStorage(
 	}
 
 	err := usersStorage.SaveRaw(&models.User{
-		Username: cfg.Root.Username,
-		Password: cfg.Root.Password,
-		Roles:    []string{models.RootRoleName},
-		Cur:      models.DefaultRole,
+		Username:   cfg.Root.Username,
+		Password:   cfg.Root.Password,
+		Roles:      []string{models.RootRoleName},
+		ActiveRole: models.DefaultRole,
 	})
 	if err != nil {
 		logger.Warn("save root user failed", zap.Error(err))
@@ -55,7 +55,7 @@ func initUserStorage(
 			Username: user.Username,
 			Password: user.Password,
 			Roles:    user.Roles,
-			Cur: models.Role{
+			ActiveRole: models.Role{
 				Name:      userRole.Name,
 				Get:       userRole.Get,
 				Set:       userRole.Set,

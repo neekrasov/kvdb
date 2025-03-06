@@ -20,9 +20,9 @@ func (_m *UsersStorage) EXPECT() *UsersStorage_Expecter {
 	return &UsersStorage_Expecter{mock: &_m.Mock}
 }
 
-// Append provides a mock function with given fields: user
-func (_m *UsersStorage) Append(user string) ([]string, error) {
-	ret := _m.Called(user)
+// Append provides a mock function with given fields: username
+func (_m *UsersStorage) Append(username string) ([]string, error) {
+	ret := _m.Called(username)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Append")
@@ -31,10 +31,10 @@ func (_m *UsersStorage) Append(user string) ([]string, error) {
 	var r0 []string
 	var r1 error
 	if rf, ok := ret.Get(0).(func(string) ([]string, error)); ok {
-		return rf(user)
+		return rf(username)
 	}
 	if rf, ok := ret.Get(0).(func(string) []string); ok {
-		r0 = rf(user)
+		r0 = rf(username)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]string)
@@ -42,7 +42,7 @@ func (_m *UsersStorage) Append(user string) ([]string, error) {
 	}
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(user)
+		r1 = rf(username)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -56,12 +56,12 @@ type UsersStorage_Append_Call struct {
 }
 
 // Append is a helper method to define mock.On call
-//   - user string
-func (_e *UsersStorage_Expecter) Append(user interface{}) *UsersStorage_Append_Call {
-	return &UsersStorage_Append_Call{Call: _e.mock.On("Append", user)}
+//   - username string
+func (_e *UsersStorage_Expecter) Append(username interface{}) *UsersStorage_Append_Call {
+	return &UsersStorage_Append_Call{Call: _e.mock.On("Append", username)}
 }
 
-func (_c *UsersStorage_Append_Call) Run(run func(user string)) *UsersStorage_Append_Call {
+func (_c *UsersStorage_Append_Call) Run(run func(username string)) *UsersStorage_Append_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
@@ -400,6 +400,64 @@ func (_c *UsersStorage_ListUsernames_Call) Return(_a0 []string, _a1 error) *User
 }
 
 func (_c *UsersStorage_ListUsernames_Call) RunAndReturn(run func() ([]string, error)) *UsersStorage_ListUsernames_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Remove provides a mock function with given fields: username
+func (_m *UsersStorage) Remove(username string) ([]string, error) {
+	ret := _m.Called(username)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Remove")
+	}
+
+	var r0 []string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) ([]string, error)); ok {
+		return rf(username)
+	}
+	if rf, ok := ret.Get(0).(func(string) []string); ok {
+		r0 = rf(username)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(username)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UsersStorage_Remove_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Remove'
+type UsersStorage_Remove_Call struct {
+	*mock.Call
+}
+
+// Remove is a helper method to define mock.On call
+//   - username string
+func (_e *UsersStorage_Expecter) Remove(username interface{}) *UsersStorage_Remove_Call {
+	return &UsersStorage_Remove_Call{Call: _e.mock.On("Remove", username)}
+}
+
+func (_c *UsersStorage_Remove_Call) Run(run func(username string)) *UsersStorage_Remove_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *UsersStorage_Remove_Call) Return(_a0 []string, _a1 error) *UsersStorage_Remove_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *UsersStorage_Remove_Call) RunAndReturn(run func(string) ([]string, error)) *UsersStorage_Remove_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -4,6 +4,8 @@ go 1.23.2
 
 require (
 	github.com/chzyer/readline v1.5.1
+	github.com/dsnet/compress v0.0.1
+	github.com/klauspost/compress v1.18.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0

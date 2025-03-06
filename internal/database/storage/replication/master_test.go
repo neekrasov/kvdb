@@ -39,7 +39,7 @@ func TestMaster_Start(t *testing.T) {
 					err := request.Encode(&buffer)
 					require.NoError(t, err)
 
-					response := handler(ctx, buffer.Bytes())
+					response := handler(ctx, "", buffer.Bytes())
 					require.NotNil(t, response)
 
 					var masterResponse replication.MasterResponse
@@ -65,7 +65,7 @@ func TestMaster_Start(t *testing.T) {
 					err := request.Encode(&buffer)
 					require.NoError(t, err)
 
-					response := handler(ctx, buffer.Bytes())
+					response := handler(ctx, "", buffer.Bytes())
 					require.NotNil(t, response)
 
 					var masterResponse replication.MasterResponse
@@ -91,7 +91,7 @@ func TestMaster_Start(t *testing.T) {
 					err := request.Encode(&buffer)
 					require.NoError(t, err)
 
-					response := handler(ctx, buffer.Bytes())
+					response := handler(ctx, "", buffer.Bytes())
 					assert.Nil(t, response)
 				}).Once()
 

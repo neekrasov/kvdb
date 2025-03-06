@@ -3,6 +3,7 @@ package compute
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
@@ -18,22 +19,26 @@ Available commands for admins:
     del <key>            - Remove a key and its value from the storage.
 
   User commands:
-    login <username> <password> - Authenticate a user.
-    create_user <username> <password> - Create a new user.
-    assign_role <username> <role> - Assign a role to a user.
-    users - List all usernames.
-    me - Display information about the current user.
+	login <username> <password> - Authenticate a user.
+	create user <username> <password> - Create a new user.
+	get user <username> - Display information about the requested user.
+	delete user <username>  - Delete a user.
+	assign role <username> <role> - Assign a role to a user.
+	divest role <username> <role> - Divest a role from user.
+	users - List all usernames.
+	me - Display information about the current user.
 
   Roles commands:
-    create_role <role_name> <permissions> <namespace> - Create a new role.
-    delete_role <role_name> - Delete a role.
+  	get role <role_name> - Display information about the requested role.
+  	create role <role_name> <permissions> <namespace> - Create a new role.
+    delete role <role_name> - Delete a role.
     roles - List all roles.
 
   Namespaces commands:
-    create_ns <namespace> - Create a new namespace.
-    delete_ns <namespace> - Delete a namespace.
+    create ns <namespace> - Create a new namespace.
+    delete ns <namespace> - Delete a namespace.
     ns - List all namespaces.
-    set_ns <namespace> - Set the current namespace for the user.
+    set ns <namespace> - Set the current namespace for the user.
 
   Help command:
     help - Display this help message.
@@ -94,14 +99,18 @@ const (
 
 	// User commands
 	CommandAUTH       CommandType = "login"
+	CommandGETUSER    CommandType = "get user"
 	CommandCREATEUSER CommandType = "create user"
 	CommandDELETEUSER CommandType = "delete user"
+
 	CommandASSIGNROLE CommandType = "assign role"
 	CommandDIVESTROLE CommandType = "divest role"
 	CommandUSERS      CommandType = "users"
+	CommandSESSIONS   CommandType = "sessions"
 	CommandME         CommandType = "me"
 
 	// Roles commands
+	CommandGETROLE    CommandType = "get role"
 	CommandCREATEROLE CommandType = "create role"
 	CommandDELETEROLE CommandType = "delete role"
 	CommandROLES      CommandType = "roles"
@@ -109,6 +118,7 @@ const (
 	// Namespaces commands
 	CommandCREATENAMESPACE CommandType = "create ns"
 	CommandDELETENAMESPACE CommandType = "delete ns"
+	CommandGETNAMESPACE    CommandType = "get ns"
 	CommandNAMESPACES      CommandType = "ns"
 	CommandSETNS           CommandType = "set ns"
 
@@ -119,6 +129,11 @@ const (
 // String - convert CommandType into string/
 func (cmd CommandType) String() string {
 	return string(cmd)
+}
+
+// Make - creates a line containing a command with an arbitrary number of arguments.
+func (cmd CommandType) Make(args ...string) string {
+	return cmd.String() + " " + strings.Join(args, " ")
 }
 
 // Command - represents a user command with a type and its arguments.
@@ -151,7 +166,8 @@ func (cmd *Command) Validate() error {
 	switch cmd.Type {
 	case CommandGET, CommandDEL, CommandDELETEROLE,
 		CommandCREATENAMESPACE, CommandDELETENAMESPACE,
-		CommandSETNS, CommandDELETEUSER:
+		CommandSETNS, CommandDELETEUSER, CommandGETUSER,
+		CommandGETROLE:
 		if len(cmd.Args) != 1 {
 			return fmt.Errorf("%w: %s command requires exactly 1 argument", ErrInvalidCommand, cmd.Type)
 		}
@@ -165,7 +181,7 @@ func (cmd *Command) Validate() error {
 			return fmt.Errorf("%w: %s command requires exactly 3 arguments", ErrInvalidCommand, cmd.Type)
 		}
 	case CommandUSERS, CommandME, CommandROLES,
-		CommandNAMESPACES, CommandHELP:
+		CommandNAMESPACES, CommandHELP, CommandSESSIONS:
 		if len(cmd.Args) > 0 {
 			return fmt.Errorf("%w: command '%s' does not accept arguments", ErrInvalidCommand, cmd.Type)
 		}

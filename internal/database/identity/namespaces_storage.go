@@ -32,12 +32,8 @@ type NamespaceStorage struct {
 }
 
 // NewNamespaceStorage - initializes and returns a new NamespaceStorage instance with the provided storage engine.
-func NewNamespaceStorage(
-	storage Storage,
-) *NamespaceStorage {
-	return &NamespaceStorage{
-		storage: storage,
-	}
+func NewNamespaceStorage(storage Storage) *NamespaceStorage {
+	return &NamespaceStorage{storage: storage}
 }
 
 // Exists - checks if a namespace exists in the storage. Returns true if it exists, otherwise false.
@@ -98,7 +94,7 @@ func (s *NamespaceStorage) Append(namespace string) ([]string, error) {
 // List - retrieves a list of all namespaces in the system.
 func (s *NamespaceStorage) List() ([]string, error) {
 	namespacesString, err := s.storage.Get(models.SystemNamespacesKey)
-	if err == nil {
+	if err != nil {
 		if errors.Is(err, storage.ErrKeyNotFound) {
 			return nil, ErrEmptyNamespaces
 		}

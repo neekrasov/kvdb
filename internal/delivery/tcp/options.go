@@ -15,6 +15,27 @@ func WithServerIdleTimeout(timeout time.Duration) ServerOption {
 	}
 }
 
+// WithConnectionHandler - handler activates where client connect.
+func WithConnectionHandler(handler ConnectionHandler) ServerOption {
+	return func(server *Server) {
+		server.onconnect = handler
+	}
+}
+
+// WithDisconnectionHandler - handler activates where client disconnect.
+func WithDisconnectionHandler(handler ConnectionHandler) ServerOption {
+	return func(server *Server) {
+		server.ondisconnect = handler
+	}
+}
+
+// // WithDisconnectionHandler - handler activates where client disconnect.
+// func WithConnectionStorage(st *ConnectionStorage) ServerOption {
+// 	return func(server *Server) {
+// 		server.connectionStorage = st
+// 	}
+// }
+
 // WithServerBufferSize - sets the buffer size for reading client data.
 func WithServerBufferSize(size uint) ServerOption {
 	return func(server *Server) {

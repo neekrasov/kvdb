@@ -1,6 +1,7 @@
 package database
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -18,29 +19,17 @@ var (
 	ErrInvalidOperation       = errors.New("invalid operation")
 	ErrAuthenticationRequired = errors.New("authentication required")
 	ErrPermissionDenied       = errors.New("permission denied")
+	ErrEmptyResult            = errors.New("empty result")
 )
 
-// WrapError - wrapping error with prefix '[error]'.
-func WrapError(err error) string {
-	return fmt.Sprintf("[error] %s", err.Error())
-}
-
-// WrapError - wrapping message with prefix '[ok]'.
-func WrapOK(msg string) string {
-	if msg == "" {
-		return "[ok]"
+// HandleQuery -  processes a user query by parsing and executing the corresponding command.
+func (c *Database) HandleQuery(sessionID string, query string) string {
+	session, err := c.sessions.Get(sessionID)
+	if err != nil {
+		logger.Debug("get current session failed", zap.Error(err))
+		return WrapError(fmt.Errorf("get current session failed: %w", err))
 	}
 
-	return "[ok] " + msg
-}
-
-// isError - check the prefix 'error:' exists.
-func isError(val string) bool {
-	return strings.Contains(val, "[error]")
-}
-
-// HandleQuery -  processes a user query by parsing and executing the corresponding command.
-func (c *Database) HandleQuery(user *models.User, query string) string {
 	cmd, err := c.parser.Parse(query)
 	if err != nil {
 		logger.Debug("parse query failed", zap.Error(err))
@@ -49,18 +38,24 @@ func (c *Database) HandleQuery(user *models.User, query string) string {
 
 	logger.Info("parsed command",
 		zap.Stringer("cmd_type", cmd.Type),
-		zap.Strings("args", cmd.Args))
+		zap.Strings("args", cmd.Args),
+	)
 
 	handler, ok := map[compute.CommandType]CommandHandler{
 		compute.CommandCREATEUSER:      {Func: c.createUser, AdminOnly: true},
 		compute.CommandASSIGNROLE:      {Func: c.assignRole, AdminOnly: true},
 		compute.CommandCREATEROLE:      {Func: c.createRole, AdminOnly: true},
-		compute.CommandDELETEROLE:      {Func: c.Delete, AdminOnly: true},
-		compute.CommandROLES:           {Func: c.roles, AdminOnly: true},
+		compute.CommandDELETEROLE:      {Func: c.delRole, AdminOnly: true},
+		compute.CommandROLES:           {Func: c.listRoles, AdminOnly: true},
+		compute.CommandGETROLE:         {Func: c.getRole, AdminOnly: true},
 		compute.CommandUSERS:           {Func: c.users, AdminOnly: true},
+		compute.CommandGETUSER:         {Func: c.getUser, AdminOnly: true},
 		compute.CommandCREATENAMESPACE: {Func: c.createNS, AdminOnly: true},
 		compute.CommandDELETENAMESPACE: {Func: c.deleteNS, AdminOnly: true},
 		compute.CommandNAMESPACES:      {Func: c.ns, AdminOnly: true},
+		compute.CommandSESSIONS:        {Func: c.listSessions, AdminOnly: true},
+		compute.CommandDELETEUSER:      {Func: c.deleteUser, AdminOnly: true},
+		compute.CommandDIVESTROLE:      {Func: c.divestRole, AdminOnly: true},
 		compute.CommandHELP:            {Func: c.help},
 		compute.CommandSETNS:           {Func: c.setNamespace},
 		compute.CommandME:              {Func: c.me},
@@ -73,24 +68,24 @@ func (c *Database) HandleQuery(user *models.User, query string) string {
 		return WrapError(ErrInvalidOperation)
 	}
 
-	if handler.AdminOnly && user.Username != c.cfg.Username {
+	if handler.AdminOnly && session.User.Username != c.cfg.Username {
 		return WrapError(ErrPermissionDenied)
 	}
 
-	oldUsr := user
-	result := handler.Func(user, cmd.Args)
+	oldUsr := session.User
+	result := handler.Func(session.User, cmd.Args)
 	logger.Info("operation executed",
 		zap.Stringer("cmd_type", cmd.Type),
 		zap.Strings("args", cmd.Args),
 		zap.String("result", result),
-		zap.Bool("error", isError(result)))
+		zap.Bool("error", IsError(result)))
 
-	if oldUsr != user {
-		err := c.userStorage.SaveRaw(user)
+	if oldUsr != session.User {
+		err := c.userStorage.SaveRaw(session.User)
 		logger.Debug(
 			"save changed user failed",
 			zap.Any("old_user", oldUsr),
-			zap.Any("new_user", user),
+			zap.Any("new_user", session.User),
 			zap.Error(err),
 		)
 	}
@@ -99,8 +94,51 @@ func (c *Database) HandleQuery(user *models.User, query string) string {
 
 }
 
+// del - executes the del command to remove a key from the storage
+func (c *Database) del(user *models.User, args []string) string {
+	if !user.ActiveRole.Del {
+		return WrapError(ErrPermissionDenied)
+	}
+
+	key := storage.MakeKey(user.ActiveRole.Namespace, args[0])
+	if err := c.storage.Del(key); err != nil {
+		return WrapError(err)
+	}
+
+	return okPrefix
+}
+
+// get - executes the get command to retrieve the value of a key from the storage.
+func (c *Database) get(user *models.User, args []string) string {
+	if !user.ActiveRole.Get {
+		return WrapError(ErrPermissionDenied)
+	}
+
+	key := storage.MakeKey(user.ActiveRole.Namespace, args[0])
+	val, err := c.storage.Get(key)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return WrapOK(val)
+}
+
+// set - executes the SET command to store a key-value pair in the storage.
+func (c *Database) set(user *models.User, args []string) string {
+	if !user.ActiveRole.Set {
+		return WrapError(ErrPermissionDenied)
+	}
+
+	key := storage.MakeKey(user.ActiveRole.Namespace, args[0])
+	if err := c.storage.Set(key, args[1]); err != nil {
+		return WrapError(err)
+	}
+
+	return okPrefix
+}
+
 // Login - authenticates a user based on the provided query.
-func (c *Database) Login(query string) (*models.User, error) {
+func (c *Database) Login(sessionID string, query string) (*models.User, error) {
 	cmd, err := c.parser.Parse(query)
 	if err != nil {
 		logger.Debug("parse query failed", zap.Error(err))
@@ -119,66 +157,18 @@ func (c *Database) Login(query string) (*models.User, error) {
 		return nil, ErrAuthenticationRequired
 	}
 
-	token, err := c.sessions.Create(user.Username)
-	if err != nil {
+	if err = c.sessions.Create(sessionID, user); err != nil {
 		return nil, err
 	}
-	user.Token = token
 
 	return user, nil
 }
 
 // Logout - logs out the user by deleting their session token.
-func (c *Database) Logout(user *models.User, args []string) string {
-	err := c.sessions.Delete(user.Token)
-	if err != nil {
-		return WrapError(err)
-	}
+func (c *Database) Logout(sessionID string) string {
+	c.sessions.Delete(sessionID)
 
-	return WrapOK("")
-}
-
-// del - executes the del command to remove a key from the storage
-func (c *Database) del(user *models.User, args []string) string {
-	if !user.Cur.Del {
-		return WrapError(ErrPermissionDenied)
-	}
-
-	key := storage.MakeKey(user.Cur.Namespace, args[0])
-	if err := c.storage.Del(key); err != nil {
-		return WrapError(err)
-	}
-
-	return WrapOK(args[0])
-}
-
-// get - executes the get command to retrieve the value of a key from the storage.
-func (c *Database) get(user *models.User, args []string) string {
-	if !user.Cur.Get {
-		return WrapError(ErrPermissionDenied)
-	}
-
-	key := storage.MakeKey(user.Cur.Namespace, args[0])
-	val, err := c.storage.Get(key)
-	if err != nil {
-		return WrapError(err)
-	}
-
-	return WrapOK(val)
-}
-
-// set - executes the SET command to store a key-value pair in the storage.
-func (c *Database) set(user *models.User, args []string) string {
-	if !user.Cur.Set {
-		return WrapError(ErrPermissionDenied)
-	}
-
-	key := storage.MakeKey(user.Cur.Namespace, args[0])
-	if err := c.storage.Set(key, args[1]); err != nil {
-		return WrapError(err)
-	}
-
-	return WrapOK(args[1])
+	return okPrefix
 }
 
 // help - executes the help command to print information about commands.
@@ -190,6 +180,22 @@ func (c *Database) help(usr *models.User, _ []string) string {
 	return compute.UserHelpText
 }
 
+// help - executes the help command to print information about commands.
+func (c *Database) listSessions(_ *models.User, _ []string) string {
+	sessions := c.sessions.List()
+	if len(sessions) == 0 {
+		return WrapError(ErrEmptyResult)
+	}
+
+	// TODO: need to optimize
+	res, err := json.Marshal(sessions)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return WrapOK(string(res))
+}
+
 // ns - executes the ns command to list namespaces.
 func (c *Database) ns(_ *models.User, _ []string) string {
 	namepaces, err := c.namespaceStorage.List()
@@ -197,11 +203,17 @@ func (c *Database) ns(_ *models.User, _ []string) string {
 		return WrapError(err)
 	}
 
-	return WrapOK(strings.Join(namepaces, " "))
+	// TODO: need to optimize
+	res, err := json.Marshal(namepaces)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return WrapOK(string(res))
 }
 
 // createUser - executes the create user command to create a new user.
-func (c *Database) createUser(user *models.User, args []string) string {
+func (c *Database) createUser(_ *models.User, args []string) string {
 	usr, err := c.userStorage.Create(args[0], args[1])
 	if err != nil {
 		return WrapError(err)
@@ -211,35 +223,92 @@ func (c *Database) createUser(user *models.User, args []string) string {
 		return WrapError(err)
 	}
 
-	return WrapOK(user.Username)
+	return okPrefix
+}
+
+// createUser - executes the create user command to create a new user.
+func (c *Database) deleteUser(usr *models.User, args []string) string {
+	if err := c.userStorage.Delete(args[0]); err != nil {
+		return WrapError(err)
+	}
+
+	if _, err := c.userStorage.Remove(usr.Username); err != nil {
+		return WrapError(err)
+	}
+
+	return okPrefix
 }
 
 // assignRole - executes the assign role command to assign a role to a user.
-func (c *Database) assignRole(user *models.User, args []string) string {
-	role, err := c.rolesStorage.Get(args[1])
-	if err != nil {
+func (c *Database) assignRole(_ *models.User, args []string) string {
+	if err := c.userStorage.AssignRole(args[0], args[1]); err != nil {
 		return WrapError(err)
 	}
 
-	if err := c.userStorage.AssignRole(args[0], role.Name); err != nil {
+	return okPrefix
+}
+
+// assignRole - executes the assign role command to assign a role to a user.
+func (c *Database) divestRole(_ *models.User, args []string) string {
+	if err := c.userStorage.AssignRole(args[0], args[1]); err != nil {
 		return WrapError(err)
 	}
 
-	return WrapOK("")
+	return okPrefix
 }
 
 // users - executes the users command to list all usernames.
-func (c *Database) users(user *models.User, args []string) string {
-	list, err := c.userStorage.ListUsernames()
+func (c *Database) users(_ *models.User, args []string) string {
+	users, err := c.userStorage.ListUsernames()
 	if err != nil {
 		return WrapError(err)
 	}
 
-	return WrapOK(strings.Join(list, " "))
+	if len(users) == 0 {
+		return WrapError(ErrEmptyResult)
+	}
+
+	// TODO: need to optimize
+	res, err := json.Marshal(users)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return WrapOK(string(res))
+}
+
+func (c *Database) getUser(_ *models.User, args []string) string {
+	user, err := c.userStorage.Get(args[0])
+	if err != nil {
+		return WrapError(err)
+	}
+
+	// TODO: need to optimize
+	res, err := json.Marshal(user)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return WrapOK(string(res))
+}
+
+func (c *Database) getRole(_ *models.User, args []string) string {
+	role, err := c.rolesStorage.Get(args[0])
+	if err != nil {
+		return WrapError(err)
+	}
+
+	// TODO: need to optimize
+	res, err := json.Marshal(role)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return WrapOK(string(res))
 }
 
 // createRole - executes the create role command to create a new role.
-func (c *Database) createRole(user *models.User, args []string) string {
+func (c *Database) createRole(_ *models.User, args []string) string {
 	if !c.namespaceStorage.Exists(args[2]) {
 		return WrapError(identity.ErrNamespaceNotFound)
 	}
@@ -262,11 +331,11 @@ func (c *Database) createRole(user *models.User, args []string) string {
 		return WrapError(err)
 	}
 
-	return WrapOK("")
+	return okPrefix
 }
 
-// Delete - executes command to delete a role.
-func (c *Database) Delete(user *models.User, args []string) string {
+// delRole - executes command to delete a role.
+func (c *Database) delRole(_ *models.User, args []string) string {
 	users, err := c.userStorage.ListUsernames()
 	if err != nil && !errors.Is(err, identity.ErrEmptyUsers) {
 		return WrapError(err)
@@ -287,31 +356,44 @@ func (c *Database) Delete(user *models.User, args []string) string {
 		return WrapError(err)
 	}
 
-	return WrapOK("")
+	return okPrefix
 }
 
-// roles - executes the roles command to list all roles.
-func (c *Database) roles(user *models.User, args []string) string {
+// listRoles - executes the listRoles command to list all listRoles.
+func (c *Database) listRoles(_ *models.User, args []string) string {
 	roles, err := c.rolesStorage.List()
 	if err != nil {
 		return WrapError(err)
 	}
 
-	return WrapOK(strings.Join(roles, ", "))
+	if len(roles) == 0 {
+		return WrapError(ErrEmptyResult)
+	}
+
+	// TODO: need to optimize
+	res, err := json.Marshal(roles)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return WrapOK(string(res))
 }
 
 // me - executes the me command to display information about the current user,
 // including their username, roles, namespace, and permissions.
 func (c *Database) me(user *models.User, _ []string) string {
+
+	// marshal
+
 	return WrapOK(fmt.Sprintf(
 		"user: '%s', roles: '%s', ns: '%s', perms: '%s'",
 		user.Username, strings.Join(user.Roles, " "),
-		user.Cur.Namespace, user.Cur.Perms(),
+		user.ActiveRole.Namespace, user.ActiveRole.Perms(),
 	))
 }
 
 // createNS - executes the create ns command to create a new namespace.
-func (c *Database) createNS(user *models.User, args []string) string {
+func (c *Database) createNS(_ *models.User, args []string) string {
 	err := c.namespaceStorage.Save(args[0])
 	if err != nil {
 		return WrapError(err)
@@ -321,17 +403,37 @@ func (c *Database) createNS(user *models.User, args []string) string {
 		return WrapError(err)
 	}
 
-	return WrapOK("")
+	return okPrefix
 }
 
 // deleteNS - executes the delete ns command to delete a namespace
-func (c *Database) deleteNS(user *models.User, args []string) string {
-	err := c.namespaceStorage.Delete(args[0])
+func (c *Database) deleteNS(_ *models.User, args []string) string {
+	roles, err := c.rolesStorage.List()
 	if err != nil {
 		return WrapError(err)
 	}
 
-	return WrapOK("")
+	for _, name := range roles {
+		role, err := c.rolesStorage.Get(name)
+		if err != nil {
+			continue
+		}
+
+		if role.Namespace == args[0] {
+			return WrapError(
+				fmt.Errorf(
+					"this namespace is still used by the role %s",
+					role.Name),
+			)
+		}
+	}
+
+	err = c.namespaceStorage.Delete(args[0])
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return okPrefix
 }
 
 // setNamespace - executes the set ns command to change the current namespace for the user.
@@ -371,6 +473,6 @@ func (c *Database) setNamespace(user *models.User, args []string) string {
 		}
 	}
 
-	user.Cur = *role
-	return WrapOK("")
+	user.ActiveRole = *role
+	return okPrefix
 }

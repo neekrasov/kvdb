@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database"
@@ -106,6 +107,7 @@ func (a *Application) Start(ctx context.Context) error {
 		tcpServerOpts = append(tcpServerOpts, tcp.WithServerMaxConnectionsNumber(mcons))
 	}
 
+	var bufferSize int
 	if msize := a.cfg.Network.MaxMessageSize; msize != "" {
 		size, err := sizeparser.ParseSize(msize)
 		if err != nil {
@@ -113,8 +115,9 @@ func (a *Application) Start(ctx context.Context) error {
 			return err
 		}
 
-		logger.Debug("set max_message_size bytes", zap.Int("max_message_size", int(size)))
+		logger.Debug("set max_message_size bytes", zap.Int("max_message_size", size))
 		tcpServerOpts = append(tcpServerOpts, tcp.WithServerBufferSize(uint(size)))
+		bufferSize = size
 	}
 
 	db := database.New(
@@ -123,29 +126,47 @@ func (a *Application) Start(ctx context.Context) error {
 		identity.NewSessionStorage(), a.cfg.Root,
 	)
 
+	tcpServerOpts = append(tcpServerOpts, tcp.WithConnectionHandler(
+		func(ctx context.Context, sessionID string, conn net.Conn) error {
+			buffer := make([]byte, bufferSize)
+			n, err := tcp.Read(conn, buffer, bufferSize)
+			if err != nil {
+				return err
+			}
+
+			_, err = db.Login(sessionID, string(buffer[:n]))
+			if err != nil {
+				_, err = conn.Write([]byte(database.WrapError(err)))
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}
+
+			_, err = conn.Write([]byte(database.WrapOK("authentication successful")))
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	))
+
+	tcpServerOpts = append(tcpServerOpts, tcp.WithDisconnectionHandler(
+		func(ctx context.Context, sessionID string, conn net.Conn) error {
+			db.Logout(sessionID)
+			return nil
+		},
+	))
+
 	server, err := tcp.NewServer(a.cfg.Network.Address, tcpServerOpts...)
 	if err != nil {
 		return fmt.Errorf("init tcp server failed: %w", err)
 	}
 
-	server.Start(ctx, func(ctx context.Context, request []byte) []byte {
-		state, ok := ctx.Value(tcp.ConnectionStateKey).(*tcp.ConnectionState)
-		if !ok {
-			return []byte("internal server error: connection state not found")
-		}
-
-		if state.User == nil {
-			user, err := db.Login(string(request))
-			if err != nil {
-				response := database.WrapError(fmt.Errorf("authentication failed: %w", err))
-				return []byte(response)
-			}
-
-			state.User = user
-			return []byte(database.WrapOK("authentication successful"))
-		}
-
-		return []byte(db.HandleQuery(state.User, string(request)))
+	server.Start(ctx, func(ctx context.Context, sessionID string, request []byte) []byte {
+		return []byte(db.HandleQuery(sessionID, string(request)))
 	})
 
 	if err = server.Close(); err != nil {

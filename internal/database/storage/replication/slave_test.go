@@ -145,9 +145,8 @@ func TestSlave_Sync(t *testing.T) {
 				mockNetClient.On("Send", mock.Anything, mock.Anything).
 					Return(nil, errors.New("test")).Once()
 			},
-			expectError: false,
+			expectError: true,
 		},
-
 		{
 			name: "Error - invalid master response",
 			prepareMocks: func(mockNetClient *replMocks.NetClient, mockWAL *replMocks.WAL) {
@@ -159,7 +158,7 @@ func TestSlave_Sync(t *testing.T) {
 				mockNetClient.On("Send", mock.Anything, mock.Anything).
 					Return([]byte("invalid"), nil).Once()
 			},
-			expectError: false,
+			expectError: true,
 		},
 	}
 
@@ -184,7 +183,7 @@ func TestSlave_Sync(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				slave.sync(context.Background())
+				err = slave.sync(context.Background())
 				if tt.expectError {
 					assert.Error(t, err)
 				} else {

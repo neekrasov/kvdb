@@ -67,7 +67,7 @@ func (_c *NetServer_Close_Call) RunAndReturn(run func() error) *NetServer_Close_
 }
 
 // Start provides a mock function with given fields: ctx, handler
-func (_m *NetServer) Start(ctx context.Context, handler func(context.Context, []byte) []byte) {
+func (_m *NetServer) Start(ctx context.Context, handler func(context.Context, string, []byte) []byte) {
 	_m.Called(ctx, handler)
 }
 
@@ -78,14 +78,14 @@ type NetServer_Start_Call struct {
 
 // Start is a helper method to define mock.On call
 //   - ctx context.Context
-//   - handler func(context.Context , []byte) []byte
+//   - handler func(context.Context , string , []byte) []byte
 func (_e *NetServer_Expecter) Start(ctx interface{}, handler interface{}) *NetServer_Start_Call {
 	return &NetServer_Start_Call{Call: _e.mock.On("Start", ctx, handler)}
 }
 
-func (_c *NetServer_Start_Call) Run(run func(ctx context.Context, handler func(context.Context, []byte) []byte)) *NetServer_Start_Call {
+func (_c *NetServer_Start_Call) Run(run func(ctx context.Context, handler func(context.Context, string, []byte) []byte)) *NetServer_Start_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(func(context.Context, []byte) []byte))
+		run(args[0].(context.Context), args[1].(func(context.Context, string, []byte) []byte))
 	})
 	return _c
 }
@@ -95,7 +95,7 @@ func (_c *NetServer_Start_Call) Return() *NetServer_Start_Call {
 	return _c
 }
 
-func (_c *NetServer_Start_Call) RunAndReturn(run func(context.Context, func(context.Context, []byte) []byte)) *NetServer_Start_Call {
+func (_c *NetServer_Start_Call) RunAndReturn(run func(context.Context, func(context.Context, string, []byte) []byte)) *NetServer_Start_Call {
 	_c.Run(run)
 	return _c
 }

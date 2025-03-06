@@ -8,7 +8,11 @@ func initCommandTrie() *compute.TrieNode {
 	root := compute.NewTrieNode()
 	root.Insert([]string{"create", "role"}, compute.CommandCREATEROLE)
 	root.Insert([]string{"create", "user"}, compute.CommandCREATEUSER)
+	root.Insert([]string{"get", "role"}, compute.CommandGETROLE)
+	root.Insert([]string{"get", "user"}, compute.CommandGETUSER)
+	root.Insert([]string{"delete", "user"}, compute.CommandCREATEUSER)
 	root.Insert([]string{"assign", "role"}, compute.CommandASSIGNROLE)
+	root.Insert([]string{"divest", "role"}, compute.CommandDIVESTROLE)
 	root.Insert([]string{"delete", "role"}, compute.CommandDELETEROLE)
 	root.Insert([]string{"create", "ns"}, compute.CommandCREATENAMESPACE)
 	root.Insert([]string{"delete", "ns"}, compute.CommandDELETENAMESPACE)
@@ -21,6 +25,7 @@ func initCommandTrie() *compute.TrieNode {
 	root.Insert([]string{"me"}, compute.CommandME)
 	root.Insert([]string{"roles"}, compute.CommandROLES)
 	root.Insert([]string{"ns"}, compute.CommandNAMESPACES)
+	root.Insert([]string{"sessions"}, compute.CommandSESSIONS)
 	root.Insert([]string{"help"}, compute.CommandHELP)
 
 	return root

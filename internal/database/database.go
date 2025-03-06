@@ -3,7 +3,6 @@ package database
 import (
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database/compute"
-	"github.com/neekrasov/kvdb/internal/database/identity"
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
 )
 
@@ -54,7 +53,9 @@ type UsersStorage interface {
 	// ListUsernames - retrieves a list of all usernames.
 	ListUsernames() ([]string, error)
 	// Append - adds a username to the list of users.
-	Append(user string) ([]string, error)
+	Append(username string) ([]string, error)
+	// Remove - remove username from the list of all users in the system.
+	Remove(username string) ([]string, error)
 }
 
 // RolesStorage - interface for managing roles.
@@ -82,11 +83,13 @@ type CommandHandler struct {
 // SessionStorage - interface for managing user sessions.
 type SessionStorage interface {
 	// Create - creates a new session for a user.
-	Create(username string) (string, error)
+	Create(id string, user *models.User) error
 	// Get - retrieves a session by token.
-	Get(token string) (*identity.Session, error)
+	Get(id string) (*models.Session, error)
 	// Delete - deletes a session by token.
-	Delete(token string) error
+	Delete(id string)
+	// List - retrieves a list of all active sessions.
+	List() []models.Session
 }
 
 // Database - represents the main entry point for parsing and executing commands.

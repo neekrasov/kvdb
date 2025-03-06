@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/neekrasov/kvdb/internal/config"
+	"github.com/neekrasov/kvdb/internal/database/compression"
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	"github.com/neekrasov/kvdb/internal/database/storage/replication"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
-	"github.com/neekrasov/kvdb/internal/database/storage/wal/compressor"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/filesystem"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
@@ -87,12 +87,15 @@ func initReplica(
 			return nil, err
 		}
 
-		var compressorInstance wal.Compressor
-		if walCfg.Compression == "gzip" {
-			compressorInstance = new(compressor.GzipCompressor)
+		var compressor compression.Compressor
+		if walCfg.Compression != "" {
+			compressor, err = compression.New(walCfg.Compression)
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		iterator := wal.NewSegmentIterator(segmentStorage, compressorInstance)
+		iterator := wal.NewSegmentIterator(segmentStorage, compressor)
 		return replication.NewMaster(server, iterator), nil
 	}
 

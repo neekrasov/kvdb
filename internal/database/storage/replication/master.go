@@ -11,7 +11,7 @@ import (
 )
 
 // Handler - type alias for the replication handler function, which processes requests from slaves.
-type Handler = func(ctx context.Context, request []byte) []byte
+type Handler = func(ctx context.Context, sessionID string, request []byte) []byte
 
 type (
 	// NetServer - interface for network server operations.
@@ -46,7 +46,7 @@ func NewMaster(
 // Start - starts the master server, handles replication requests from slaves, and sends responses.
 func (m *Master) Start(ctx context.Context) {
 	logger.Debug("replication master server was started")
-	m.server.Start(ctx, func(ctx context.Context, requestData []byte) []byte {
+	m.server.Start(ctx, func(ctx context.Context, _ string, requestData []byte) []byte {
 		if ctx.Err() != nil {
 			return nil
 		}
