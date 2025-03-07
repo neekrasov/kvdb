@@ -7,8 +7,8 @@ import (
 
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/storage/replication"
-	"github.com/neekrasov/kvdb/internal/database/storage/tx"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
+	"github.com/neekrasov/kvdb/pkg/ctxutil"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	pkgsync "github.com/neekrasov/kvdb/pkg/sync"
 	"go.uber.org/zap"
@@ -91,7 +91,7 @@ func (s *Storage) Set(ctx context.Context, key, value string) error {
 	}
 
 	txID := s.gen.Generate()
-	ctx = tx.InjectTxID(ctx, txID)
+	ctx = ctxutil.InjectTxID(ctx, txID)
 
 	err := s.wal.Set(ctx, key, value)
 	if err != nil {
@@ -105,7 +105,7 @@ func (s *Storage) Set(ctx context.Context, key, value string) error {
 // Get - retrieves the value associated with a key from the storage
 func (s *Storage) Get(ctx context.Context, key string) (string, error) {
 	txID := s.gen.Generate()
-	ctx = tx.InjectTxID(ctx, txID)
+	ctx = ctxutil.InjectTxID(ctx, txID)
 
 	val, exists := s.engine.Get(ctx, key)
 	if !exists {
@@ -122,7 +122,7 @@ func (s *Storage) Del(ctx context.Context, key string) error {
 	}
 
 	txID := s.gen.Generate()
-	ctx = tx.InjectTxID(ctx, txID)
+	ctx = ctxutil.InjectTxID(ctx, txID)
 
 	err := s.wal.Del(ctx, key)
 	if err != nil {

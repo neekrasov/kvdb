@@ -103,6 +103,7 @@ type Database struct {
 	rolesStorage     RolesStorage
 	sessions         SessionStorage
 	cfg              *config.RootConfig
+	registry         map[compute.CommandType]CommandHandler
 }
 
 // New - creates and initializes a new instance of Database.
@@ -114,7 +115,7 @@ func New(
 	sessions SessionStorage,
 	cfg *config.RootConfig,
 ) *Database {
-	return &Database{
+	db := Database{
 		parser:           parser,
 		storage:          storage,
 		userStorage:      userStorage,
@@ -123,4 +124,29 @@ func New(
 		sessions:         sessions,
 		cfg:              cfg,
 	}
+
+	db.registry = map[compute.CommandType]CommandHandler{
+		compute.CommandCREATEUSER:      {Func: db.createUser, AdminOnly: true},
+		compute.CommandASSIGNROLE:      {Func: db.assignRole, AdminOnly: true},
+		compute.CommandCREATEROLE:      {Func: db.createRole, AdminOnly: true},
+		compute.CommandDELETEROLE:      {Func: db.delRole, AdminOnly: true},
+		compute.CommandROLES:           {Func: db.listRoles, AdminOnly: true},
+		compute.CommandGETROLE:         {Func: db.getRole, AdminOnly: true},
+		compute.CommandUSERS:           {Func: db.users, AdminOnly: true},
+		compute.CommandGETUSER:         {Func: db.getUser, AdminOnly: true},
+		compute.CommandCREATENAMESPACE: {Func: db.createNS, AdminOnly: true},
+		compute.CommandDELETENAMESPACE: {Func: db.deleteNS, AdminOnly: true},
+		compute.CommandNAMESPACES:      {Func: db.ns, AdminOnly: true},
+		compute.CommandSESSIONS:        {Func: db.listSessions, AdminOnly: true},
+		compute.CommandDELETEUSER:      {Func: db.deleteUser, AdminOnly: true},
+		compute.CommandDIVESTROLE:      {Func: db.divestRole, AdminOnly: true},
+		compute.CommandHELP:            {Func: db.help},
+		compute.CommandSETNS:           {Func: db.setNamespace},
+		compute.CommandME:              {Func: db.me},
+		compute.CommandGET:             {Func: db.get},
+		compute.CommandSET:             {Func: db.set},
+		compute.CommandDEL:             {Func: db.del},
+	}
+
+	return &db
 }

@@ -1,17 +1,17 @@
-package conversiontypes_test
+package unsafeconv_test
 
 import (
 	"testing"
 	"unsafe"
 
-	conversiontypes "github.com/neekrasov/kvdb/pkg/conversion_types"
+	"github.com/neekrasov/kvdb/pkg/unsafeconv"
 )
 
 func TestUnsafeBytesToString(t *testing.T) {
 	t.Parallel()
 
 	b := []byte("hello")
-	s := conversiontypes.UnsafeBytesToString(b)
+	s := unsafeconv.UnsafeBytesToString(b)
 
 	// Check if conversion result is correct
 	if s != "hello" {
@@ -24,7 +24,7 @@ func TestUnsafeBytesToString(t *testing.T) {
 	}
 
 	// Check empty slice case
-	if conversiontypes.UnsafeBytesToString(nil) != "" {
+	if unsafeconv.UnsafeBytesToString(nil) != "" {
 		t.Errorf("expected empty string for nil input")
 	}
 }
@@ -33,7 +33,7 @@ func TestUnsafeStringToBytes(t *testing.T) {
 	t.Parallel()
 
 	s := "hello"
-	b := conversiontypes.UnsafeStringToBytes(s)
+	b := unsafeconv.UnsafeStringToBytes(s)
 
 	// Check if conversion result is correct
 	if string(b) != "hello" {
@@ -46,7 +46,7 @@ func TestUnsafeStringToBytes(t *testing.T) {
 	}
 
 	// Check empty string case
-	if conversiontypes.UnsafeStringToBytes("") != nil {
+	if unsafeconv.UnsafeStringToBytes("") != nil {
 		t.Errorf("expected nil slice for empty string input")
 	}
 }
@@ -55,7 +55,7 @@ func TestUnsafeIntToInt64(t *testing.T) {
 	t.Parallel()
 
 	i := 42
-	i64 := conversiontypes.UnsafeIntToInt64(i)
+	i64 := unsafeconv.UnsafeIntToInt64(i)
 
 	// Check if conversion preserves value
 	if int(i64) != i {

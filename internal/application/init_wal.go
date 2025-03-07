@@ -6,7 +6,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/storage/wal"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/filesystem"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
-	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
+	"github.com/neekrasov/kvdb/pkg/sizeutil"
 )
 
 func initWAL(cfg *config.WALConfig) (*wal.WAL, error) {
@@ -22,7 +22,7 @@ func initWAL(cfg *config.WALConfig) (*wal.WAL, error) {
 
 	segmentManagerOpts := make([]wal.FileSegmentManagerOpt, 0)
 	if cfg.MaxSegmentSize != "" {
-		size, err := sizeparser.ParseSize(cfg.MaxSegmentSize)
+		size, err := sizeutil.ParseSize(cfg.MaxSegmentSize)
 		if err != nil {
 			return nil, err
 		}

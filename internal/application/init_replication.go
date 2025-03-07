@@ -13,7 +13,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/filesystem"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
-	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
+	"github.com/neekrasov/kvdb/pkg/sizeutil"
 )
 
 const (
@@ -57,7 +57,7 @@ func initReplica(
 
 	maxMessageSize := defaultMaxSegmentSize
 	if walCfg.MaxSegmentSize != "" {
-		size, err := sizeparser.ParseSize(walCfg.MaxSegmentSize)
+		size, err := sizeutil.ParseSize(walCfg.MaxSegmentSize)
 		if err != nil {
 			return nil, fmt.Errorf("parse max segment size failed: %w", err)
 		}

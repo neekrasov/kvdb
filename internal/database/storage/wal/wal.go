@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/neekrasov/kvdb/internal/database/compute"
-	"github.com/neekrasov/kvdb/internal/database/storage/tx"
+	"github.com/neekrasov/kvdb/pkg/ctxutil"
 	pkgSync "github.com/neekrasov/kvdb/pkg/sync"
 
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -110,7 +110,7 @@ func (w *WAL) push(ctx context.Context, op compute.CommandID, args []string) err
 		return nil
 	}
 
-	txID := tx.ExtractTxID(ctx)
+	txID := ctxutil.ExtractTxID(ctx)
 	logger.Debug(
 		"pushed log entry to wal",
 		zap.Int("operation", int(op)),

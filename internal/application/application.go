@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"net"
 
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database"
@@ -13,7 +12,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/storage/replication"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
 	"github.com/neekrasov/kvdb/pkg/logger"
-	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
+	"github.com/neekrasov/kvdb/pkg/sizeutil"
 	"go.uber.org/zap"
 )
 
@@ -47,7 +46,6 @@ func (a *Application) Start(ctx context.Context) error {
 			logger.Debug("failed to close wal", zap.Error(err))
 		}
 	}()
-
 	if wal != nil {
 		wal.Start(ctx)
 	}
@@ -109,7 +107,7 @@ func (a *Application) Start(ctx context.Context) error {
 
 	var bufferSize int
 	if msize := a.cfg.Network.MaxMessageSize; msize != "" {
-		size, err := sizeparser.ParseSize(msize)
+		size, err := sizeutil.ParseSize(msize)
 		if err != nil {
 			logger.Error("pase max message size failed", zap.Error(err))
 			return err
@@ -126,49 +124,20 @@ func (a *Application) Start(ctx context.Context) error {
 		identity.NewSessionStorage(), a.cfg.Root,
 	)
 
-	tcpServerOpts = append(tcpServerOpts, tcp.WithConnectionHandler(
-		func(ctx context.Context, sessionID string, conn net.Conn) error {
-			buffer := make([]byte, bufferSize)
-			n, err := tcp.Read(conn, buffer, bufferSize)
-			if err != nil {
-				return err
-			}
+	onConnectHandler := initOnConnectHandler(bufferSize, db)
+	onDisconnectHandler := initOnDisconnectHandler(db)
 
-			_, err = db.Login(ctx, sessionID, string(buffer[:n]))
-			if err != nil {
-				_, err = conn.Write([]byte(database.WrapError(err)))
-				if err != nil {
-					return err
-				}
-
-				return nil
-			}
-
-			_, err = conn.Write([]byte(database.WrapOK("authentication successful")))
-			if err != nil {
-				return err
-			}
-
-			return nil
-		},
-	))
-
-	tcpServerOpts = append(tcpServerOpts, tcp.WithDisconnectionHandler(
-		func(ctx context.Context, sessionID string, conn net.Conn) error {
-			db.Logout(ctx, sessionID)
-			return nil
-		},
-	))
+	tcpServerOpts = append(tcpServerOpts,
+		tcp.WithConnectionHandler(onConnectHandler),
+		tcp.WithDisconnectionHandler(onDisconnectHandler),
+	)
 
 	server, err := tcp.NewServer(a.cfg.Network.Address, tcpServerOpts...)
 	if err != nil {
 		return fmt.Errorf("init tcp server failed: %w", err)
 	}
 
-	server.Start(ctx, func(ctx context.Context, sessionID string, request []byte) []byte {
-		return []byte(db.HandleQuery(ctx, sessionID, string(request)))
-	})
-
+	server.Start(ctx, initQueryHandler(db))
 	if err = server.Close(); err != nil {
 		return fmt.Errorf("failed to close server: %w", err)
 	}

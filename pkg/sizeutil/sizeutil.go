@@ -1,4 +1,4 @@
-package sizeparser
+package sizeutil
 
 import "errors"
 

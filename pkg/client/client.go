@@ -13,7 +13,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/compression"
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
-	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
+	"github.com/neekrasov/kvdb/pkg/sizeutil"
 )
 
 var (
@@ -118,7 +118,7 @@ func (k *Client) connect() error {
 	}
 
 	if k.cfg.MaxMessageSize != "" {
-		size, err := sizeparser.ParseSize(k.cfg.MaxMessageSize)
+		size, err := sizeutil.ParseSize(k.cfg.MaxMessageSize)
 		if err != nil {
 			return fmt.Errorf("parse max message size '%s' failed: %w", k.cfg.MaxMessageSize, err)
 		}

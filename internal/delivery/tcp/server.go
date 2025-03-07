@@ -88,7 +88,7 @@ func (s *Server) Start(ctx context.Context, handler Handler) {
 			logger.Debug(
 				"accept connection",
 				zap.Stringer("remote_addr", conn.RemoteAddr()),
-				zap.String("session_Id", sessionID),
+				zap.String("session", sessionID),
 			)
 
 			s.semaphore.Acquire()

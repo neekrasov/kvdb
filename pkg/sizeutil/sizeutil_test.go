@@ -1,9 +1,9 @@
-package sizeparser_test
+package sizeutil_test
 
 import (
 	"testing"
 
-	sizeparser "github.com/neekrasov/kvdb/pkg/size_parser"
+	"github.com/neekrasov/kvdb/pkg/sizeutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -64,7 +64,7 @@ func TestParseSize(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			result, err := sizeparser.ParseSize(test.input)
+			result, err := sizeutil.ParseSize(test.input)
 			if test.expectedErr != nil {
 				assert.Error(t, err)
 				return

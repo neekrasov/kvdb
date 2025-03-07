@@ -1,4 +1,4 @@
-package conversiontypes
+package unsafeconv
 
 import (
 	"unsafe"
