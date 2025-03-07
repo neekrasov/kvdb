@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"errors"
 	"slices"
 
@@ -13,6 +14,7 @@ import (
 )
 
 func initUserStorage(
+	ctx context.Context,
 	storage *storage.Storage,
 	cfg *config.Config,
 ) (*identity.UsersStorage, error) {
@@ -21,7 +23,7 @@ func initUserStorage(
 		return usersStorage, nil
 	}
 
-	err := usersStorage.SaveRaw(&models.User{
+	err := usersStorage.SaveRaw(ctx, &models.User{
 		Username:   cfg.Root.Username,
 		Password:   cfg.Root.Password,
 		Roles:      []string{models.RootRoleName},
@@ -64,7 +66,7 @@ func initUserStorage(
 			},
 		}
 
-		err = usersStorage.SaveRaw(&user)
+		err = usersStorage.SaveRaw(ctx, &user)
 		if err != nil {
 			logger.Warn("save default user failed",
 				zap.Error(err),
@@ -73,7 +75,7 @@ func initUserStorage(
 			continue
 		}
 
-		list, err := usersStorage.Append(user.Username)
+		list, err := usersStorage.Append(ctx, user.Username)
 		if err != nil {
 			logger.Warn("save default user in global list failed", zap.Error(err))
 		}

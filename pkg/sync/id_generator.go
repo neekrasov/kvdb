@@ -1,4 +1,4 @@
-package idgenerator
+package sync
 
 import (
 	"math"
@@ -11,10 +11,10 @@ type IDGenerator struct {
 }
 
 // NewIDGenerator - Initializes a new IDGenerator with a starting value.
-func NewIDGenerator(previousID int64) *IDGenerator {
-	generator := &IDGenerator{}
-	generator.counter.Store(previousID)
-	return generator
+func NewIDGenerator(prevID int64) *IDGenerator {
+	gen := &IDGenerator{}
+	gen.counter.Store(prevID)
+	return gen
 }
 
 // Generate - Generates a new unique ID. Resets the counter if it reaches the maximum value.

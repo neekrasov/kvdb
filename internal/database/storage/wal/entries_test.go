@@ -32,7 +32,7 @@ func TestLogEntryEncodeDecode(t *testing.T) {
 func TestWriteEntry(t *testing.T) {
 	op := compute.CommandID(1)
 	args := []string{"arg1", "arg2"}
-	entry := wal.NewWriteEntry(op, args)
+	entry := wal.NewWriteEntry(0, op, args)
 
 	logEntry := entry.Log()
 	assert.Equal(t, op, logEntry.Operation, "Operation should match")

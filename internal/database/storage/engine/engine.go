@@ -1,8 +1,10 @@
 package engine
 
 import (
+	"context"
 	"hash/fnv"
 
+	"github.com/neekrasov/kvdb/internal/database/storage/tx"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -29,30 +31,69 @@ func New(options ...Option) *Engine {
 }
 
 // Set - set stores a key-value pair in memory.
-func (e *Engine) Set(key, value string) {
-	e.part(key).Set(key, value)
+func (e *Engine) Set(ctx context.Context, key, value string) {
+	txID := tx.ExtractTxID(ctx)
+	n, part := e.part(txID, key)
+	part.Set(key, value)
+
+	logger.Debug(
+		"successfull set query",
+		zap.Int64("tx", txID),
+		zap.Int("part", n),
+	)
 }
 
 // Get - retrieves the value associated with a key.
-func (e *Engine) Get(key string) (string, bool) {
-	return e.part(key).Get(key)
+func (e *Engine) Get(ctx context.Context, key string) (string, bool) {
+	txID := tx.ExtractTxID(ctx)
+
+	n, part := e.part(txID, key)
+	val, found := part.Get(key)
+
+	logger.Debug(
+		"successfull get query",
+		zap.Int64("tx", txID),
+		zap.Int("part", n),
+	)
+
+	return val, found
 }
 
 // Del - removes a key-value pair from memory.
-func (e *Engine) Del(key string) error {
-	return e.part(key).Del(key)
+func (e *Engine) Del(ctx context.Context, key string) error {
+	txID := tx.ExtractTxID(ctx)
+
+	n, part := e.part(txID, key)
+	err := part.Del(key)
+	if err != nil {
+		logger.Debug("del query failed",
+			zap.Error(err),
+			zap.Int64("tx", txID),
+			zap.Int("part", n),
+		)
+	} else {
+		logger.Debug("successfull get query",
+			zap.Int64("tx", txID),
+			zap.Int("part", n),
+		)
+	}
+
+	return err
 }
 
 // part - returns the partition for a given key based on hashing.
-func (e *Engine) part(key string) *partitionMap {
+func (e *Engine) part(txID int64, key string) (int, *partitionMap) {
 	hash := fnv.New32a()
 	if _, err := hash.Write([]byte(key)); err != nil {
 		logger.Error(
 			"hash key failed",
 			zap.String("key", key),
+			zap.Int64("tx", txID),
 			zap.Error(err),
 		)
-		return nil
+		return 0, nil
 	}
-	return e.partitions[int(hash.Sum32())%len(e.partitions)]
+
+	num := int(hash.Sum32()) % len(e.partitions)
+	return num, e.partitions[num]
 }

@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	context "context"
+
 	mock "github.com/stretchr/testify/mock"
 
 	wal "github.com/neekrasov/kvdb/internal/database/storage/wal"
@@ -21,17 +23,17 @@ func (_m *WAL) EXPECT() *WAL_Expecter {
 	return &WAL_Expecter{mock: &_m.Mock}
 }
 
-// Del provides a mock function with given fields: key
-func (_m *WAL) Del(key string) error {
-	ret := _m.Called(key)
+// Del provides a mock function with given fields: ctx, key
+func (_m *WAL) Del(ctx context.Context, key string) error {
+	ret := _m.Called(ctx, key)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Del")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(key)
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, key)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -45,14 +47,15 @@ type WAL_Del_Call struct {
 }
 
 // Del is a helper method to define mock.On call
+//   - ctx context.Context
 //   - key string
-func (_e *WAL_Expecter) Del(key interface{}) *WAL_Del_Call {
-	return &WAL_Del_Call{Call: _e.mock.On("Del", key)}
+func (_e *WAL_Expecter) Del(ctx interface{}, key interface{}) *WAL_Del_Call {
+	return &WAL_Del_Call{Call: _e.mock.On("Del", ctx, key)}
 }
 
-func (_c *WAL_Del_Call) Run(run func(key string)) *WAL_Del_Call {
+func (_c *WAL_Del_Call) Run(run func(ctx context.Context, key string)) *WAL_Del_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
+		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
@@ -62,27 +65,37 @@ func (_c *WAL_Del_Call) Return(_a0 error) *WAL_Del_Call {
 	return _c
 }
 
-func (_c *WAL_Del_Call) RunAndReturn(run func(string) error) *WAL_Del_Call {
+func (_c *WAL_Del_Call) RunAndReturn(run func(context.Context, string) error) *WAL_Del_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Recover provides a mock function with given fields: applyFunc
-func (_m *WAL) Recover(applyFunc func(wal.LogEntry) error) error {
+func (_m *WAL) Recover(applyFunc func(context.Context, []wal.LogEntry) error) (int64, error) {
 	ret := _m.Called(applyFunc)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Recover")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(func(wal.LogEntry) error) error); ok {
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(func(context.Context, []wal.LogEntry) error) (int64, error)); ok {
+		return rf(applyFunc)
+	}
+	if rf, ok := ret.Get(0).(func(func(context.Context, []wal.LogEntry) error) int64); ok {
 		r0 = rf(applyFunc)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(int64)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(func(context.Context, []wal.LogEntry) error) error); ok {
+		r1 = rf(applyFunc)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // WAL_Recover_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Recover'
@@ -91,39 +104,39 @@ type WAL_Recover_Call struct {
 }
 
 // Recover is a helper method to define mock.On call
-//   - applyFunc func(wal.LogEntry) error
+//   - applyFunc func(context.Context , []wal.LogEntry) error
 func (_e *WAL_Expecter) Recover(applyFunc interface{}) *WAL_Recover_Call {
 	return &WAL_Recover_Call{Call: _e.mock.On("Recover", applyFunc)}
 }
 
-func (_c *WAL_Recover_Call) Run(run func(applyFunc func(wal.LogEntry) error)) *WAL_Recover_Call {
+func (_c *WAL_Recover_Call) Run(run func(applyFunc func(context.Context, []wal.LogEntry) error)) *WAL_Recover_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(func(wal.LogEntry) error))
+		run(args[0].(func(context.Context, []wal.LogEntry) error))
 	})
 	return _c
 }
 
-func (_c *WAL_Recover_Call) Return(_a0 error) *WAL_Recover_Call {
-	_c.Call.Return(_a0)
+func (_c *WAL_Recover_Call) Return(_a0 int64, _a1 error) *WAL_Recover_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *WAL_Recover_Call) RunAndReturn(run func(func(wal.LogEntry) error) error) *WAL_Recover_Call {
+func (_c *WAL_Recover_Call) RunAndReturn(run func(func(context.Context, []wal.LogEntry) error) (int64, error)) *WAL_Recover_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// Set provides a mock function with given fields: key, value
-func (_m *WAL) Set(key string, value string) error {
-	ret := _m.Called(key, value)
+// Set provides a mock function with given fields: ctx, key, value
+func (_m *WAL) Set(ctx context.Context, key string, value string) error {
+	ret := _m.Called(ctx, key, value)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Set")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string) error); ok {
-		r0 = rf(key, value)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, key, value)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -137,15 +150,16 @@ type WAL_Set_Call struct {
 }
 
 // Set is a helper method to define mock.On call
+//   - ctx context.Context
 //   - key string
 //   - value string
-func (_e *WAL_Expecter) Set(key interface{}, value interface{}) *WAL_Set_Call {
-	return &WAL_Set_Call{Call: _e.mock.On("Set", key, value)}
+func (_e *WAL_Expecter) Set(ctx interface{}, key interface{}, value interface{}) *WAL_Set_Call {
+	return &WAL_Set_Call{Call: _e.mock.On("Set", ctx, key, value)}
 }
 
-func (_c *WAL_Set_Call) Run(run func(key string, value string)) *WAL_Set_Call {
+func (_c *WAL_Set_Call) Run(run func(ctx context.Context, key string, value string)) *WAL_Set_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -155,7 +169,7 @@ func (_c *WAL_Set_Call) Return(_a0 error) *WAL_Set_Call {
 	return _c
 }
 
-func (_c *WAL_Set_Call) RunAndReturn(run func(string, string) error) *WAL_Set_Call {
+func (_c *WAL_Set_Call) RunAndReturn(run func(context.Context, string, string) error) *WAL_Set_Call {
 	_c.Call.Return(run)
 	return _c
 }

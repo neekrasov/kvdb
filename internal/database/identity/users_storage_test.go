@@ -1,6 +1,7 @@
 package identity_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/neekrasov/kvdb/internal/database/identity"
@@ -16,15 +17,16 @@ func TestUsersStorage(t *testing.T) {
 	mockStorage := mocks.NewStorage(t)
 	usersStorage := identity.NewUsersStorage(mockStorage)
 
+	ctx := context.Background()
 	t.Run("Test Create - success", func(t *testing.T) {
 		username := "testUser"
 		password := "testPass"
 		key := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
-		mockStorage.On("Set", key, mock.Anything).Return(nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Set", mock.Anything, key, mock.Anything).Return(nil).Once()
 
-		_, err := usersStorage.Create(username, password)
+		_, err := usersStorage.Create(ctx, username, password)
 		assert.NoError(t, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -34,9 +36,9 @@ func TestUsersStorage(t *testing.T) {
 		password := "testPass"
 		key := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		mockStorage.On("Get", key).Return("{}", nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("{}", nil).Once()
 
-		_, err := usersStorage.Create(username, password)
+		_, err := usersStorage.Create(ctx, username, password)
 		assert.Equal(t, identity.ErrUserAlreadyExists, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -49,9 +51,9 @@ func TestUsersStorage(t *testing.T) {
 		user := models.User{Username: username, Password: password}
 		userBytes, _ := gob.Encode(user)
 
-		mockStorage.On("Get", key).Return(string(userBytes), nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return(string(userBytes), nil).Once()
 
-		retrievedUser, err := usersStorage.Authenticate(username, password)
+		retrievedUser, err := usersStorage.Authenticate(ctx, username, password)
 		assert.NoError(t, err)
 		assert.Equal(t, username, retrievedUser.Username)
 		mockStorage.AssertExpectations(t)
@@ -65,9 +67,9 @@ func TestUsersStorage(t *testing.T) {
 		user := models.User{Username: username, Password: "wrongPass"}
 		userBytes, _ := gob.Encode(user)
 
-		mockStorage.On("Get", key).Return(string(userBytes), nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return(string(userBytes), nil).Once()
 
-		_, err := usersStorage.Authenticate(username, password)
+		_, err := usersStorage.Authenticate(ctx, username, password)
 		assert.Equal(t, identity.ErrAuthenticationFailed, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -77,9 +79,9 @@ func TestUsersStorage(t *testing.T) {
 		password := "testPass"
 		key := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
 
-		_, err := usersStorage.Authenticate(username, password)
+		_, err := usersStorage.Authenticate(ctx, username, password)
 		assert.Equal(t, identity.ErrAuthenticationFailed, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -93,11 +95,11 @@ func TestUsersStorage(t *testing.T) {
 		user := models.User{Username: username, Roles: []string{}}
 		userBytes, _ := gob.Encode(user)
 
-		mockStorage.On("Get", userKey).Return(string(userBytes), nil).Once()
-		mockStorage.On("Get", roleKey).Return("{}", nil).Once()
-		mockStorage.On("Set", userKey, mock.Anything).Return(nil).Once()
+		mockStorage.On("Get", mock.Anything, userKey).Return(string(userBytes), nil).Once()
+		mockStorage.On("Get", mock.Anything, roleKey).Return("{}", nil).Once()
+		mockStorage.On("Set", mock.Anything, userKey, mock.Anything).Return(nil).Once()
 
-		err := usersStorage.AssignRole(username, role)
+		err := usersStorage.AssignRole(ctx, username, role)
 		assert.NoError(t, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -107,9 +109,9 @@ func TestUsersStorage(t *testing.T) {
 		role := "admin"
 		userKey := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		mockStorage.On("Get", userKey).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Get", mock.Anything, userKey).Return("", storage.ErrKeyNotFound).Once()
 
-		err := usersStorage.AssignRole(username, role)
+		err := usersStorage.AssignRole(ctx, username, role)
 		assert.Equal(t, identity.ErrUserNotFound, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -123,10 +125,10 @@ func TestUsersStorage(t *testing.T) {
 		user := models.User{Username: username, Roles: []string{}}
 		userBytes, _ := gob.Encode(user)
 
-		mockStorage.On("Get", userKey).Return(string(userBytes), nil).Once()
-		mockStorage.On("Get", roleKey).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Get", mock.Anything, userKey).Return(string(userBytes), nil).Once()
+		mockStorage.On("Get", mock.Anything, roleKey).Return("", storage.ErrKeyNotFound).Once()
 
-		err := usersStorage.AssignRole(username, role)
+		err := usersStorage.AssignRole(ctx, username, role)
 		assert.Equal(t, identity.ErrRoleNotFound, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -135,10 +137,10 @@ func TestUsersStorage(t *testing.T) {
 		username := "deleteUser"
 		key := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		mockStorage.On("Get", key).Return("{}", nil).Once()
-		mockStorage.On("Del", key).Return(nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("{}", nil).Once()
+		mockStorage.On("Del", mock.Anything, key).Return(nil).Once()
 
-		err := usersStorage.Delete(username)
+		err := usersStorage.Delete(ctx, username)
 		assert.NoError(t, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -147,9 +149,9 @@ func TestUsersStorage(t *testing.T) {
 		username := "nonexistentUser"
 		key := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
 
-		err := usersStorage.Delete(username)
+		err := usersStorage.Delete(ctx, username)
 		assert.Equal(t, identity.ErrUserNotFound, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -158,10 +160,10 @@ func TestUsersStorage(t *testing.T) {
 		user := models.User{Username: "testUser", Password: "testPass"}
 		key := storage.MakeKey(models.SystemUserNameSpace, user.Username)
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
-		mockStorage.On("Set", key, mock.Anything).Return(nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Set", mock.Anything, key, mock.Anything).Return(nil).Once()
 
-		err := usersStorage.SaveRaw(&user)
+		err := usersStorage.SaveRaw(ctx, &user)
 		assert.NoError(t, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -172,9 +174,9 @@ func TestUsersStorage(t *testing.T) {
 		user := models.User{Username: username, Password: "testPass"}
 		userBytes, _ := gob.Encode(user)
 
-		mockStorage.On("Get", key).Return(string(userBytes), nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return(string(userBytes), nil).Once()
 
-		retrievedUser, err := usersStorage.Get(username)
+		retrievedUser, err := usersStorage.Get(ctx, username)
 		assert.NoError(t, err)
 		assert.Equal(t, username, retrievedUser.Username)
 		mockStorage.AssertExpectations(t)
@@ -184,9 +186,9 @@ func TestUsersStorage(t *testing.T) {
 		username := "nonexistentUser"
 		key := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
 
-		_, err := usersStorage.Get(username)
+		_, err := usersStorage.Get(ctx, username)
 		assert.Equal(t, identity.ErrUserNotFound, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -195,9 +197,9 @@ func TestUsersStorage(t *testing.T) {
 		username := "testUser"
 		key := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		mockStorage.On("Get", key).Return("invalid json", nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("invalid json", nil).Once()
 
-		_, err := usersStorage.Get(username)
+		_, err := usersStorage.Get(ctx, username)
 		assert.Error(t, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -208,10 +210,10 @@ func TestUsersStorage(t *testing.T) {
 
 		listBytes, _ := gob.Encode([]string{})
 
-		mockStorage.On("Get", key).Return(string(listBytes), nil).Once()
-		mockStorage.On("Set", key, mock.Anything).Return(nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return(string(listBytes), nil).Once()
+		mockStorage.On("Set", mock.Anything, key, mock.Anything).Return(nil).Once()
 
-		users, err := usersStorage.Append(username)
+		users, err := usersStorage.Append(ctx, username)
 		assert.NoError(t, err)
 		assert.Contains(t, users, username)
 		mockStorage.AssertExpectations(t)
@@ -222,9 +224,9 @@ func TestUsersStorage(t *testing.T) {
 		users := []string{"user1", "user2"}
 		usersBytes, _ := gob.Encode(users)
 
-		mockStorage.On("Get", key).Return(string(usersBytes), nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return(string(usersBytes), nil).Once()
 
-		retrievedUsers, err := usersStorage.ListUsernames()
+		retrievedUsers, err := usersStorage.ListUsernames(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, users, retrievedUsers)
 		mockStorage.AssertExpectations(t)
@@ -233,9 +235,9 @@ func TestUsersStorage(t *testing.T) {
 	t.Run("Test ListUsernames - empty list", func(t *testing.T) {
 		key := models.SystemUsersKey
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
 
-		users, err := usersStorage.ListUsernames()
+		users, err := usersStorage.ListUsernames(ctx)
 		assert.Error(t, err, identity.ErrEmptyUsers)
 		assert.Empty(t, users)
 		mockStorage.AssertExpectations(t)
@@ -244,9 +246,9 @@ func TestUsersStorage(t *testing.T) {
 	t.Run("Test ListUsernames - decode error", func(t *testing.T) {
 		key := models.SystemUsersKey
 
-		mockStorage.On("Get", key).Return("invalid json", nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("invalid json", nil).Once()
 
-		_, err := usersStorage.ListUsernames()
+		_, err := usersStorage.ListUsernames(ctx)
 		assert.Error(t, err)
 		mockStorage.AssertExpectations(t)
 	})

@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"context"
 	"errors"
 
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
@@ -27,9 +28,9 @@ func NewUsersStorage(storage Storage) *UsersStorage {
 }
 
 // Authenticate - authenticates a user by verifying their username and password.
-func (s *UsersStorage) Authenticate(username, password string) (*models.User, error) {
+func (s *UsersStorage) Authenticate(ctx context.Context, username, password string) (*models.User, error) {
 	userKey := storage.MakeKey(models.SystemUserNameSpace, username)
-	userString, err := s.storage.Get(userKey)
+	userString, err := s.storage.Get(ctx, userKey)
 	if err != nil {
 		return nil, ErrAuthenticationFailed
 	}
@@ -47,15 +48,15 @@ func (s *UsersStorage) Authenticate(username, password string) (*models.User, er
 }
 
 // AssignRole - assigns a role to a user.
-func (s *UsersStorage) AssignRole(username string, role string) error {
+func (s *UsersStorage) AssignRole(ctx context.Context, username string, role string) error {
 	userKey := storage.MakeKey(models.SystemUserNameSpace, username)
-	userString, err := s.storage.Get(userKey)
+	userString, err := s.storage.Get(ctx, userKey)
 	if err != nil && errors.Is(err, storage.ErrKeyNotFound) {
 		return ErrUserNotFound
 	}
 
 	roleKey := storage.MakeKey(models.SystemRoleNameSpace, role)
-	_, err = s.storage.Get(roleKey)
+	_, err = s.storage.Get(ctx, roleKey)
 	if err != nil && errors.Is(err, storage.ErrKeyNotFound) {
 		return ErrRoleNotFound
 	}
@@ -71,7 +72,7 @@ func (s *UsersStorage) AssignRole(username string, role string) error {
 		return err
 	}
 
-	err = s.storage.Set(userKey, string(userBytesUpdated))
+	err = s.storage.Set(ctx, userKey, string(userBytesUpdated))
 	if err != nil {
 		return err
 	}
@@ -80,15 +81,15 @@ func (s *UsersStorage) AssignRole(username string, role string) error {
 }
 
 // AssignRole - assigns a role to a user.
-func (s *UsersStorage) DivestRole(username string, role string) error {
+func (s *UsersStorage) DivestRole(ctx context.Context, username string, role string) error {
 	userKey := storage.MakeKey(models.SystemUserNameSpace, username)
-	userString, err := s.storage.Get(userKey)
+	userString, err := s.storage.Get(ctx, userKey)
 	if err != nil && errors.Is(err, storage.ErrKeyNotFound) {
 		return ErrUserNotFound
 	}
 
 	roleKey := storage.MakeKey(models.SystemRoleNameSpace, role)
-	_, err = s.storage.Get(roleKey)
+	_, err = s.storage.Get(ctx, roleKey)
 	if err != nil && errors.Is(err, storage.ErrKeyNotFound) {
 		return ErrRoleNotFound
 	}
@@ -113,7 +114,7 @@ func (s *UsersStorage) DivestRole(username string, role string) error {
 		return err
 	}
 
-	err = s.storage.Set(userKey, string(userBytesUpdated))
+	err = s.storage.Set(ctx, userKey, string(userBytesUpdated))
 	if err != nil {
 		return err
 	}
@@ -122,9 +123,9 @@ func (s *UsersStorage) DivestRole(username string, role string) error {
 }
 
 // Create - creates a new user with the specified username and password.
-func (s *UsersStorage) Create(username, password string) (*models.User, error) {
+func (s *UsersStorage) Create(ctx context.Context, username, password string) (*models.User, error) {
 	key := storage.MakeKey(models.SystemUserNameSpace, username)
-	if _, err := s.storage.Get(key); err == nil {
+	if _, err := s.storage.Get(ctx, key); err == nil {
 		return nil, ErrUserAlreadyExists
 	}
 
@@ -140,7 +141,7 @@ func (s *UsersStorage) Create(username, password string) (*models.User, error) {
 		return nil, err
 	}
 
-	err = s.storage.Set(key, string(userBytes))
+	err = s.storage.Set(ctx, key, string(userBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -149,9 +150,9 @@ func (s *UsersStorage) Create(username, password string) (*models.User, error) {
 }
 
 // SaveRaw - saves a user object directly to the storage.
-func (s *UsersStorage) SaveRaw(user *models.User) error {
+func (s *UsersStorage) SaveRaw(ctx context.Context, user *models.User) error {
 	key := storage.MakeKey(models.SystemUserNameSpace, user.Username)
-	if _, err := s.storage.Get(key); err == nil {
+	if _, err := s.storage.Get(ctx, key); err == nil {
 		return ErrUserAlreadyExists
 	}
 
@@ -160,13 +161,13 @@ func (s *UsersStorage) SaveRaw(user *models.User) error {
 		return err
 	}
 
-	return s.storage.Set(key, string(userBytes))
+	return s.storage.Set(ctx, key, string(userBytes))
 }
 
 // Get - retrieves a user by their username.
-func (s *UsersStorage) Get(username string) (*models.User, error) {
+func (s *UsersStorage) Get(ctx context.Context, username string) (*models.User, error) {
 	key := storage.MakeKey(models.SystemUserNameSpace, username)
-	userString, err := s.storage.Get(key)
+	userString, err := s.storage.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, storage.ErrKeyNotFound) {
 			return nil, ErrUserNotFound
@@ -184,9 +185,9 @@ func (s *UsersStorage) Get(username string) (*models.User, error) {
 }
 
 // Delete - deletes a user by their username.
-func (s *UsersStorage) Delete(username string) error {
+func (s *UsersStorage) Delete(ctx context.Context, username string) error {
 	key := storage.MakeKey(models.SystemUserNameSpace, username)
-	if _, err := s.storage.Get(key); err != nil {
+	if _, err := s.storage.Get(ctx, key); err != nil {
 		if errors.Is(err, storage.ErrKeyNotFound) {
 			return ErrUserNotFound
 		}
@@ -194,12 +195,12 @@ func (s *UsersStorage) Delete(username string) error {
 		return err
 	}
 
-	return s.storage.Del(key)
+	return s.storage.Del(ctx, key)
 }
 
 // Append - adds a new username to the list of all users in the system.
-func (s *UsersStorage) Append(user string) ([]string, error) {
-	users, err := s.ListUsernames()
+func (s *UsersStorage) Append(ctx context.Context, user string) ([]string, error) {
+	users, err := s.ListUsernames(ctx)
 	if err != nil && !errors.Is(err, ErrEmptyUsers) {
 		return nil, err
 	}
@@ -210,7 +211,7 @@ func (s *UsersStorage) Append(user string) ([]string, error) {
 		return users, err
 	}
 
-	err = s.storage.Set(models.SystemUsersKey, string(usersBytes))
+	err = s.storage.Set(ctx, models.SystemUsersKey, string(usersBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -219,8 +220,8 @@ func (s *UsersStorage) Append(user string) ([]string, error) {
 }
 
 // Remove - remove username from the list of all users in the system.
-func (s *UsersStorage) Remove(user string) ([]string, error) {
-	users, err := s.ListUsernames()
+func (s *UsersStorage) Remove(ctx context.Context, user string) ([]string, error) {
+	users, err := s.ListUsernames(ctx)
 	if err != nil && !errors.Is(err, ErrEmptyUsers) {
 		return nil, err
 	}
@@ -243,7 +244,7 @@ func (s *UsersStorage) Remove(user string) ([]string, error) {
 		return users, err
 	}
 
-	err = s.storage.Set(models.SystemUsersKey, string(usersBytes))
+	err = s.storage.Set(ctx, models.SystemUsersKey, string(usersBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -252,8 +253,8 @@ func (s *UsersStorage) Remove(user string) ([]string, error) {
 }
 
 // ListUsernames - retrieves a list of all usernames in the system.
-func (s *UsersStorage) ListUsernames() ([]string, error) {
-	usersString, err := s.storage.Get(models.SystemUsersKey)
+func (s *UsersStorage) ListUsernames(ctx context.Context) ([]string, error) {
+	usersString, err := s.storage.Get(ctx, models.SystemUsersKey)
 	if err != nil {
 		if errors.Is(err, storage.ErrKeyNotFound) {
 			return nil, ErrEmptyUsers

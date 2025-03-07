@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"errors"
 	"slices"
 
@@ -13,6 +14,7 @@ import (
 )
 
 func initRolesStorage(
+	ctx context.Context,
 	storage *storage.Storage,
 	cfg *config.Config,
 ) (*identity.RolesStorage, error) {
@@ -21,7 +23,7 @@ func initRolesStorage(
 		return rolesStorage, nil
 	}
 
-	err := rolesStorage.Save(&models.Role{
+	err := rolesStorage.Save(ctx, &models.Role{
 		Name: models.RootRoleName,
 		Get:  true, Set: true, Del: true,
 		Namespace: models.DefaultNameSpace,
@@ -30,7 +32,7 @@ func initRolesStorage(
 		logger.Warn("save root role failed", zap.Error(err))
 	}
 
-	err = rolesStorage.Save(&models.Role{
+	err = rolesStorage.Save(ctx, &models.Role{
 		Name: models.DefaultRoleName,
 		Get:  true, Set: true, Del: true,
 		Namespace: models.DefaultNameSpace,
@@ -52,7 +54,7 @@ func initRolesStorage(
 			return nil, errors.New("invalid role namespace in default roles")
 		}
 
-		err := rolesStorage.Save(&models.Role{
+		err := rolesStorage.Save(ctx, &models.Role{
 			Name:      role.Name,
 			Get:       role.Get,
 			Set:       role.Set,
@@ -66,7 +68,7 @@ func initRolesStorage(
 			continue
 		}
 
-		list, err := rolesStorage.Append(role.Name)
+		list, err := rolesStorage.Append(ctx, role.Name)
 		if err != nil {
 			logger.Warn("save default role in global list failed", zap.Error(err))
 		}

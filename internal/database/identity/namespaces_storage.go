@@ -1,11 +1,13 @@
 package identity
 
 import (
+	"context"
 	"errors"
 	"io"
 
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
 	"github.com/neekrasov/kvdb/internal/database/storage"
+
 	"github.com/neekrasov/kvdb/pkg/gob"
 )
 
@@ -18,11 +20,11 @@ var (
 // Storage - interface for storing, retrieving, and deleting key-value pairs.
 type Storage interface {
 	// Set - stores a value for a given key.
-	Set(key, value string) error
+	Set(ctx context.Context, key, value string) error
 	// Get - retrieves the value associated with a given key.
-	Get(key string) (string, error)
+	Get(ctx context.Context, key string) (string, error)
 	// Del - removes a key and its value from the storage.
-	Del(key string) error
+	Del(ctx context.Context, key string) error
 }
 
 // NamespaceStorage - struct that manages namespace-related operations,
@@ -37,9 +39,9 @@ func NewNamespaceStorage(storage Storage) *NamespaceStorage {
 }
 
 // Exists - checks if a namespace exists in the storage. Returns true if it exists, otherwise false.
-func (s *NamespaceStorage) Exists(namespace string) bool {
+func (s *NamespaceStorage) Exists(ctx context.Context, namespace string) bool {
 	key := storage.MakeKey(models.SystemNamespaceNameSpace, namespace)
-	if _, err := s.storage.Get(key); err != nil {
+	if _, err := s.storage.Get(ctx, key); err != nil {
 		return false
 	}
 
@@ -47,13 +49,13 @@ func (s *NamespaceStorage) Exists(namespace string) bool {
 }
 
 // Save - saves a new namespace to the storage.
-func (s *NamespaceStorage) Save(namespace string) error {
+func (s *NamespaceStorage) Save(ctx context.Context, namespace string) error {
 	key := storage.MakeKey(models.SystemNamespaceNameSpace, namespace)
-	if _, err := s.storage.Get(key); err == nil {
+	if _, err := s.storage.Get(ctx, key); err == nil {
 		return ErrNamespaceAlreadyExists
 	}
 
-	if err := s.storage.Set(key, ""); err != nil {
+	if err := s.storage.Set(ctx, key, ""); err != nil {
 		return err
 	}
 
@@ -61,18 +63,18 @@ func (s *NamespaceStorage) Save(namespace string) error {
 }
 
 // Delete - deletes a namespace from the storage.
-func (s *NamespaceStorage) Delete(namespace string) error {
+func (s *NamespaceStorage) Delete(ctx context.Context, namespace string) error {
 	key := storage.MakeKey(models.SystemNamespaceNameSpace, namespace)
-	if _, err := s.storage.Get(key); err != nil {
+	if _, err := s.storage.Get(ctx, key); err != nil {
 		return ErrNamespaceNotFound
 	}
 
-	return s.storage.Del(key)
+	return s.storage.Del(ctx, key)
 }
 
 // Append - adds a new namespace to the list of all namespaces in the system.
-func (s *NamespaceStorage) Append(namespace string) ([]string, error) {
-	nsList, err := s.List()
+func (s *NamespaceStorage) Append(ctx context.Context, namespace string) ([]string, error) {
+	nsList, err := s.List(ctx)
 	if err != nil && !errors.Is(err, ErrEmptyNamespaces) {
 		return nil, err
 	}
@@ -83,7 +85,7 @@ func (s *NamespaceStorage) Append(namespace string) ([]string, error) {
 		return nsList, err
 	}
 
-	err = s.storage.Set(models.SystemNamespacesKey, string(nsBytes))
+	err = s.storage.Set(ctx, models.SystemNamespacesKey, string(nsBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +94,8 @@ func (s *NamespaceStorage) Append(namespace string) ([]string, error) {
 }
 
 // List - retrieves a list of all namespaces in the system.
-func (s *NamespaceStorage) List() ([]string, error) {
-	namespacesString, err := s.storage.Get(models.SystemNamespacesKey)
+func (s *NamespaceStorage) List(ctx context.Context) ([]string, error) {
+	namespacesString, err := s.storage.Get(ctx, models.SystemNamespacesKey)
 	if err != nil {
 		if errors.Is(err, storage.ErrKeyNotFound) {
 			return nil, ErrEmptyNamespaces

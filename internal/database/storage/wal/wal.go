@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/neekrasov/kvdb/internal/database/compute"
+	"github.com/neekrasov/kvdb/internal/database/storage/tx"
 	pkgSync "github.com/neekrasov/kvdb/pkg/sync"
 
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -20,7 +22,7 @@ type SegmentManager interface {
 	// Write - writes entries to the current segment.
 	Write(entries []WriteEntry, nolock bool) error
 	// ForEach - iterates through all segments.
-	ForEach(action func([]byte) error) error
+	ForEach(action func(ctx context.Context, b []byte) error) error
 	// Close - closes the current segment.
 	Close() error
 }
@@ -85,44 +87,46 @@ func (w *WAL) Start(ctx context.Context) {
 }
 
 // Set - push a set operation to the WAL.
-func (w *WAL) Set(key, value string) error {
+func (w *WAL) Set(ctx context.Context, key, value string) error {
 	if w == nil {
 		return nil
 	}
 
-	return w.push(compute.SetCommandID, []string{key, value})
+	return w.push(ctx, compute.SetCommandID, []string{key, value})
 }
 
 // Delete - push a delete operation to the WAL.
-func (w *WAL) Del(key string) error {
+func (w *WAL) Del(ctx context.Context, key string) error {
 	if w == nil {
 		return nil
 	}
 
-	return w.push(compute.DelCommandID, []string{key})
+	return w.push(ctx, compute.DelCommandID, []string{key})
 }
 
 // push - pushes a log entry to the batch.
-func (w *WAL) push(op compute.CommandID, args []string) error {
+func (w *WAL) push(ctx context.Context, op compute.CommandID, args []string) error {
 	if w == nil {
 		return nil
 	}
 
+	txID := tx.ExtractTxID(ctx)
 	logger.Debug(
 		"pushed log entry to wal",
 		zap.Int("operation", int(op)),
 		zap.Strings("args", args),
+		zap.Int64("tx", txID),
 	)
 
-	we := NewWriteEntry(op, args)
+	entry := NewWriteEntry(txID, op, args)
 	pkgSync.WithLock(&w.mu, func() {
-		w.batch = append(w.batch, we)
+		w.batch = append(w.batch, entry)
 		if len(w.batch) >= w.batchSize {
 			w.batches <- struct{}{}
 		}
 	})
 
-	return we.future.Get()
+	return entry.future.Get()
 }
 
 func (w *WAL) Flush(batch []WriteEntry) error {
@@ -149,36 +153,44 @@ func (w *WAL) flush() error {
 }
 
 // Recover - recovers the state from the WAL.
-func (w *WAL) Recover(applyFunc func(entry LogEntry) error) error {
+func (w *WAL) Recover(applyFunc func(ctx context.Context, entry []LogEntry) error) (int64, error) {
 	if w == nil || applyFunc == nil {
-		return nil
+		return 0, nil
 	}
 
+	var lastLSN int64
 	logger.Debug("start recovering segments")
 	err := w.segmentManager.ForEach(
-		func(b []byte) error {
+		func(ctx context.Context, b []byte) error {
+			var entries []LogEntry
+
 			buffer := bytes.NewBuffer(b)
 			for buffer.Len() > 0 {
 				var entry LogEntry
 				if err := entry.Decode(buffer); err != nil && err != io.EOF {
 					return fmt.Errorf("error gob decoding: %w", err)
 				}
-
-				if err := applyFunc(entry); err != nil {
-					return fmt.Errorf(
-						"error while applying entry cmd id %d with args %v: %w",
-						entry.Operation, entry.Args, err,
-					)
-				}
+				entries = append(entries, entry)
 			}
 
+			sort.Slice(entries, func(i, j int) bool {
+				return entries[i].LSN < entries[j].LSN
+			})
+
+			if err := applyFunc(ctx, entries); err != nil {
+				return fmt.Errorf("failed to epply entries: %w", err)
+			}
+
+			if len(entries) > 0 {
+				lastLSN = entries[len(entries)-1].LSN
+			}
 			return nil
 		})
 	if err != nil {
-		return fmt.Errorf("execute action for recover failed: %w", err)
+		return 0, fmt.Errorf("execute action for recover failed: %w", err)
 	}
 
-	return nil
+	return lastLSN, nil
 }
 
 // Close - closes the WAL.

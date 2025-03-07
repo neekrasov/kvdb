@@ -2,6 +2,7 @@ package wal
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"sync"
@@ -224,7 +225,7 @@ func (fsm *FileSegmentManager) ackEntries(entries []WriteEntry, err error) {
 }
 
 // ForEach - iterates through all segments.
-func (fsm *FileSegmentManager) ForEach(action func([]byte) error) error {
+func (fsm *FileSegmentManager) ForEach(action func(context.Context, []byte) error) error {
 	if action == nil {
 		return nil
 	}
@@ -240,7 +241,7 @@ func (fsm *FileSegmentManager) ForEach(action func([]byte) error) error {
 			return fmt.Errorf("iteration failed: %w", err)
 		}
 
-		if err := action(data); err != nil {
+		if err := action(context.TODO(), data); err != nil {
 			return fmt.Errorf("action failed (s.num %d): %w", n, err)
 		}
 	}

@@ -84,6 +84,11 @@ func (s *Slave) Start(ctx context.Context) {
 	ticker := time.NewTicker(s.syncInterval)
 	defer ticker.Stop()
 
+	logger.Debug("sync started",
+		zap.Stringer("time", time.Now()),
+		zap.Stringer("interval", s.syncInterval),
+	)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -95,7 +100,7 @@ func (s *Slave) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			logger.Debug("sync started", zap.Stringer("time", time.Now()))
+			logger.Debug("synchronize", zap.Stringer("time", time.Now()))
 
 			if err := s.sync(ctx); err != nil {
 				logger.Error("slave sync failed", zap.Error(err))
@@ -174,7 +179,7 @@ func (s *Slave) applySegment(payload []byte) error {
 
 		logEntries = append(logEntries, request)
 		writeEntries = append(writeEntries, wal.NewWriteEntry(
-			request.Operation, request.Args,
+			request.LSN, request.Operation, request.Args,
 		))
 	}
 

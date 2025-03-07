@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -102,7 +103,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandSET.Make("key", "value")).Return(
 					&compute.Command{Type: compute.CommandSET,
 						Args: []string{"key", "value"}}, nil).Once()
-				s.On("Set", mock.Anything, mock.Anything).Return(nil).Once()
+				s.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 			},
 		},
 		{
@@ -118,7 +119,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandDEL.Make("key")).Return(
 					&compute.Command{Type: compute.CommandDEL,
 						Args: []string{"key"}}, nil).Once()
-				s.On("Del", "default:key").Return(nil).Once()
+				s.On("Del", mock.Anything, "default:key").Return(nil).Once()
 			},
 		},
 		{
@@ -134,7 +135,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandGET.Make("key")).Return(
 					&compute.Command{Type: compute.CommandGET,
 						Args: []string{"key"}}, nil).Once()
-				s.On("Get", "default:key").Return("value", nil).Once()
+				s.On("Get", mock.Anything, "default:key").Return("value", nil).Once()
 			},
 		},
 		{
@@ -150,7 +151,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandSET.String()+" key value").Return(
 					&compute.Command{Type: compute.CommandSET,
 						Args: []string{"key", "value"}}, nil).Once()
-				s.On("Set", "default:key", "value").Return(nil).Once()
+				s.On("Set", mock.Anything, "default:key", "value").Return(nil).Once()
 			},
 		},
 		{
@@ -166,8 +167,8 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandCREATEUSER.Make("username", "password")).Return(
 					&compute.Command{Type: compute.CommandCREATEUSER,
 						Args: []string{"username", "password"}}, nil).Once()
-				us.On("Create", "username", "password").Return(&models.User{Username: "admin"}, nil).Once()
-				us.On("Append", "admin").Return([]string{}, nil).Once()
+				us.On("Create", mock.Anything, "username", "password").Return(&models.User{Username: "admin"}, nil).Once()
+				us.On("Append", mock.Anything, "admin").Return([]string{}, nil).Once()
 			},
 		},
 		{
@@ -183,7 +184,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandASSIGNROLE.Make("username", "role")).Return(
 					&compute.Command{Type: compute.CommandASSIGNROLE,
 						Args: []string{"username", "role"}}, nil).Once()
-				us.On("AssignRole", "username", "role").Return(nil).Once()
+				us.On("AssignRole", mock.Anything, "username", "role").Return(nil).Once()
 			},
 		},
 		{
@@ -199,7 +200,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandUSERS.String()).Return(
 					&compute.Command{Type: compute.CommandUSERS,
 						Args: []string{}}, nil).Once()
-				us.On("ListUsernames").Return([]string{"user1", "user2"}, nil).Once()
+				us.On("ListUsernames", mock.Anything).Return([]string{"user1", "user2"}, nil).Once()
 			},
 		},
 		{
@@ -215,10 +216,10 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandCREATEROLE.String()+" role rwd namespace").Return(
 					&compute.Command{Type: compute.CommandCREATEROLE,
 						Args: []string{"role", "rwd", "namespace"}}, nil).Once()
-				ns.On("Exists", "namespace").Return(true).Once()
-				rs.On("Get", "role").Return(nil, identity.ErrRoleNotFound).Once()
-				rs.On("Save", mock.Anything).Return(nil).Once()
-				rs.On("Append", "role").Return(nil, nil).Once()
+				ns.On("Exists", mock.Anything, "namespace").Return(true).Once()
+				rs.On("Get", mock.Anything, "role").Return(nil, identity.ErrRoleNotFound).Once()
+				rs.On("Save", mock.Anything, mock.Anything).Return(nil).Once()
+				rs.On("Append", mock.Anything, "role").Return(nil, nil).Once()
 			},
 		},
 		{
@@ -234,8 +235,8 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandDELETEROLE.String()+" role").Return(
 					&compute.Command{Type: compute.CommandDELETEROLE,
 						Args: []string{"role"}}, nil).Once()
-				us.On("ListUsernames").Return([]string{}, nil).Once()
-				rs.On("Delete", "role").Return(nil).Once()
+				us.On("ListUsernames", mock.Anything).Return([]string{}, nil).Once()
+				rs.On("Delete", mock.Anything, "role").Return(nil).Once()
 			},
 		},
 		{
@@ -251,7 +252,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandROLES.String()).Return(
 					&compute.Command{Type: compute.CommandROLES,
 						Args: []string{}}, nil).Once()
-				rs.On("List").Return([]string{"role1", "role2"}, nil).Once()
+				rs.On("List", mock.Anything).Return([]string{"role1", "role2"}, nil).Once()
 			},
 		},
 		{
@@ -290,8 +291,8 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandCREATENAMESPACE.Make("namespace")).Return(
 					&compute.Command{Type: compute.CommandCREATENAMESPACE,
 						Args: []string{"namespace"}}, nil).Once()
-				ns.On("Save", "namespace").Return(nil).Once()
-				ns.On("Append", "namespace").Return(nil, nil).Once()
+				ns.On("Save", mock.Anything, "namespace").Return(nil).Once()
+				ns.On("Append", mock.Anything, "namespace").Return(nil, nil).Once()
 			},
 		},
 		{
@@ -304,11 +305,11 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
 			) {
 				ss.On("Get", sessionID).Return(session, nil).Once()
-				rs.On("List").Return(nil, nil)
+				rs.On("List", mock.Anything).Return(nil, nil)
 				p.On("Parse", compute.CommandDELETENAMESPACE.Make("namespace")).Return(
 					&compute.Command{Type: compute.CommandDELETENAMESPACE,
 						Args: []string{"namespace"}}, nil).Once()
-				ns.On("Delete", "namespace").Return(nil).Once()
+				ns.On("Delete", mock.Anything, "namespace").Return(nil).Once()
 			},
 		},
 		{
@@ -328,8 +329,8 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				p.On("Parse", compute.CommandSETNS.Make("namespace")).Return(
 					&compute.Command{Type: compute.CommandSETNS,
 						Args: []string{"namespace"}}, nil).Once()
-				ns.On("Exists", "namespace").Return(true).Once()
-				rs.On("Get", "role1").Return(&models.Role{Namespace: "namespace"}, nil).Once()
+				ns.On("Exists", mock.Anything, "namespace").Return(true).Once()
+				rs.On("Get", mock.Anything, "role1").Return(&models.Role{Namespace: "namespace"}, nil).Once()
 			},
 		},
 	}
@@ -338,6 +339,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			ctx := context.Background()
 			mockParser, mockStorage := dbMock.NewParser(t), dbMock.NewStorage(t)
 			mockUserStorage, mockRolesStorage := dbMock.NewUsersStorage(t), dbMock.NewRolesStorage(t)
 			mockNamespaceStorage := dbMock.NewNamespacesStorage(t)
@@ -355,7 +357,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				mockSessionStorage, &config.RootConfig{Username: "admin"},
 			)
 
-			result := db.HandleQuery(sessionID, tt.query)
+			result := db.HandleQuery(ctx, sessionID, tt.query)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -397,7 +399,7 @@ func TestDatabase_Login(t *testing.T) {
 						Type: compute.CommandAUTH,
 						Args: []string{"username", "password"},
 					}, nil)
-				us.On("Authenticate", "username", "password").Return(nil, identity.ErrAuthenticationFailed)
+				us.On("Authenticate", mock.Anything, "username", "password").Return(nil, identity.ErrAuthenticationFailed)
 			},
 		},
 		{
@@ -413,7 +415,7 @@ func TestDatabase_Login(t *testing.T) {
 						Type: compute.CommandAUTH,
 						Args: []string{"username", "password"},
 					}, nil)
-				us.On("Authenticate", "username", "password").Return(nil, nil)
+				us.On("Authenticate", mock.Anything, "username", "password").Return(nil, nil)
 			},
 		},
 		{
@@ -430,7 +432,7 @@ func TestDatabase_Login(t *testing.T) {
 					&compute.Command{
 						Type: compute.CommandAUTH, Args: []string{"username", "password"},
 					}, nil)
-				us.On("Authenticate", "username", "password").Return(user, nil)
+				us.On("Authenticate", mock.Anything, "username", "password").Return(user, nil)
 				ss.On("Create", "1", user).Return(nil)
 			},
 		},
@@ -439,6 +441,7 @@ func TestDatabase_Login(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := context.Background()
 
 			mockParser := dbMock.NewParser(t)
 			mockUserStorage := dbMock.NewUsersStorage(t)
@@ -451,11 +454,10 @@ func TestDatabase_Login(t *testing.T) {
 				sessions:    mockSessionStorage,
 			}
 
-			user, err := db.Login("1", tt.query)
+			user, err := db.Login(ctx, "1", tt.query)
 			assert.Equal(t, tt.err, err)
 			if tt.expected != nil {
 				assert.Equal(t, tt.expected.Username, user.Username)
-
 			}
 		})
 	}
@@ -465,10 +467,11 @@ func TestDatabase_Logout(t *testing.T) {
 	mockSessionStorage := identity.NewSessionStorage()
 	db := &Database{sessions: mockSessionStorage}
 
+	ctx := context.Background()
 	user := &models.User{Username: "username"}
 	err := mockSessionStorage.Create("1", user)
 	require.NoError(t, err)
 
-	result := db.Logout("1")
+	result := db.Logout(ctx, "1")
 	assert.Equal(t, okPrefix, result)
 }

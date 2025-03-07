@@ -1,6 +1,8 @@
 package database
 
 import (
+	"context"
+
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
@@ -15,67 +17,67 @@ type Parser interface {
 // Storage - interface for storing, retrieving, and deleting key-value pairs.
 type Storage interface {
 	// Set stores a value for a given key.
-	Set(key, value string) error
+	Set(ctx context.Context, key, value string) error
 	// Get retrieves the value associated with a given key.
-	Get(key string) (string, error)
+	Get(ctx context.Context, key string) (string, error)
 	// Del removes a key and its value from the storage.
-	Del(key string) error
+	Del(ctx context.Context, key string) error
 }
 
 // NamespacesStorage - interface for managing namespaces.
 type NamespacesStorage interface {
 	// Save - Saves a namespace
-	Save(namespace string) error
+	Save(ctx context.Context, namespace string) error
 	// Exists - Checks if a namespace exists.
-	Exists(namespace string) bool
+	Exists(ctx context.Context, namespace string) bool
 	// Delete - Deletes a namespace.
-	Delete(namespace string) error
+	Delete(ctx context.Context, namespace string) error
 	// List - Retrieves a list of all namespaces.
-	List() ([]string, error)
+	List(ctx context.Context) ([]string, error)
 	// Append - Adds a namespace to the list of namespaces.
-	Append(namespace string) ([]string, error)
+	Append(ctx context.Context, namespace string) ([]string, error)
 }
 
 // UsersStorage - interface for managing users.
 type UsersStorage interface {
 	// Authenticate - authenticates a user by username and password.
-	Authenticate(username, password string) (*models.User, error)
+	Authenticate(ctx context.Context, username, password string) (*models.User, error)
 	// Create - creates a new user.
-	Create(username, password string) (*models.User, error)
+	Create(ctx context.Context, username, password string) (*models.User, error)
 	// Get - retrieves a user by username.
-	Get(username string) (*models.User, error)
+	Get(ctx context.Context, username string) (*models.User, error)
 	// SaveRaw - saves a user object directly to storage.
-	SaveRaw(user *models.User) error
+	SaveRaw(ctx context.Context, user *models.User) error
 	// Delete - deletes a user by username.
-	Delete(username string) error
+	Delete(ctx context.Context, username string) error
 	// AssignRole - assigns a role to a user.
-	AssignRole(username string, role string) error
+	AssignRole(ctx context.Context, username string, role string) error
 	// ListUsernames - retrieves a list of all usernames.
-	ListUsernames() ([]string, error)
+	ListUsernames(ctx context.Context) ([]string, error)
 	// Append - adds a username to the list of users.
-	Append(username string) ([]string, error)
+	Append(ctx context.Context, username string) ([]string, error)
 	// Remove - remove username from the list of all users in the system.
-	Remove(username string) ([]string, error)
+	Remove(ctx context.Context, username string) ([]string, error)
 }
 
 // RolesStorage - interface for managing roles.
 type RolesStorage interface {
 	// Save - saves a role.
-	Save(role *models.Role) error
+	Save(ctx context.Context, role *models.Role) error
 	// Get - retrieves a role by name.
-	Get(name string) (*models.Role, error)
+	Get(ctx context.Context, name string) (*models.Role, error)
 	// Delete - deletes a role by name.
-	Delete(name string) error
+	Delete(ctx context.Context, name string) error
 	// List - retrieves a list of all roles.
-	List() ([]string, error)
+	List(ctx context.Context) ([]string, error)
 	// Append - adds a role to the list of roles.
-	Append(role string) ([]string, error)
+	Append(ctx context.Context, role string) ([]string, error)
 }
 
 // CommandHandler - used to execute specific actions based on user input.
 type CommandHandler struct {
 	// Func - function to execute for the models.
-	Func func(*models.User, []string) string
+	Func func(context.Context, *models.User, []string) string
 	// AdminOnly - indicates whether the models can only be executed by an admin.
 	AdminOnly bool
 }

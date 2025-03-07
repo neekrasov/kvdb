@@ -278,6 +278,7 @@ func (k *Client) Get(ctx context.Context, key string) (string, error) {
 
 	return value, nil
 }
+
 func (k *Client) Del(ctx context.Context, key string) error {
 	if _, err := k.send(ctx, compute.CommandDEL.Make(key)); err != nil {
 		return fmt.Errorf("failed to del '%s': %w", key, err)

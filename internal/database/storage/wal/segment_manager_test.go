@@ -1,6 +1,7 @@
 package wal_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"sync"
@@ -87,7 +88,7 @@ func TestFileSegmentManager_Write(t *testing.T) {
 		{
 			name: "Success - Write entries to current segment",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(compute.SetCommandID, []string{}),
+				wal.NewWriteEntry(0, compute.SetCommandID, []string{}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
@@ -100,7 +101,7 @@ func TestFileSegmentManager_Write(t *testing.T) {
 		{
 			name: "Error - Failed to write to segment",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(compute.SetCommandID, []string{}),
+				wal.NewWriteEntry(0, compute.SetCommandID, []string{}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
@@ -159,7 +160,7 @@ func TestFileSegmentManager_Write_WithCompression(t *testing.T) {
 		{
 			name: "Success - Write entries with compression",
 			entries: []wal.WriteEntry{
-				wal.NewWriteEntry(compute.SetCommandID, []string{"key", "value"}),
+				wal.NewWriteEntry(0, compute.SetCommandID, []string{"key", "value"}),
 			},
 			prepareMocks: func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment, mockCompressor *mocks.Compressor) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
@@ -225,7 +226,7 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 		name         string
 		prepareMocks func(mockStorage *mocks.SegmentStorage, mockSegment *mocks.Segment, mockCompressor *mocks.Compressor)
 		expectError  bool
-		action       func([]byte) error
+		action       func(context.Context, []byte) error
 	}{
 		{
 			name: "Success - Iterate over segments",
@@ -243,7 +244,7 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 				mockSegment.EXPECT().Compressed().Return(true).Once()
 				mockCompressor.EXPECT().Decompress([]uint8{}).Return(nil, nil)
 			},
-			action: func(b []byte) error {
+			action: func(ctx context.Context, b []byte) error {
 				return nil
 			},
 			expectError: false,
@@ -264,7 +265,7 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 				mockSegment.EXPECT().Compressed().Return(true).Once()
 				mockCompressor.EXPECT().Decompress([]uint8{}).Return(nil, errors.New("some error"))
 			},
-			action: func(b []byte) error {
+			action: func(ctx context.Context, b []byte) error {
 				return nil
 			},
 			expectError: true,
@@ -275,7 +276,7 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 				mockStorage.EXPECT().List().Return([]int{1}, nil)
 				mockStorage.EXPECT().Open(1).Return(mockSegment, errors.New("opening error"))
 			},
-			action: func(b []byte) error {
+			action: func(ctx context.Context, b []byte) error {
 				return nil
 			},
 			expectError: true,
@@ -288,7 +289,7 @@ func TestFileSegmentManager_ForEach(t *testing.T) {
 				mockSegment.EXPECT().Close().Return(nil)
 				mockSegment.EXPECT().Read(mock.Anything).Return(0, errors.New("test"))
 			},
-			action: func(b []byte) error {
+			action: func(ctx context.Context, b []byte) error {
 				return nil
 			},
 			expectError: true,

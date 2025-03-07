@@ -1,4 +1,4 @@
-package idgenerator
+package sync
 
 import (
 	"math"

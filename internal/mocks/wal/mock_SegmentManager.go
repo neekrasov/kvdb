@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	context "context"
+
 	wal "github.com/neekrasov/kvdb/internal/database/storage/wal"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -66,7 +68,7 @@ func (_c *SegmentManager_Close_Call) RunAndReturn(run func() error) *SegmentMana
 }
 
 // ForEach provides a mock function with given fields: action
-func (_m *SegmentManager) ForEach(action func([]byte) error) error {
+func (_m *SegmentManager) ForEach(action func(context.Context, []byte) error) error {
 	ret := _m.Called(action)
 
 	if len(ret) == 0 {
@@ -74,7 +76,7 @@ func (_m *SegmentManager) ForEach(action func([]byte) error) error {
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(func([]byte) error) error); ok {
+	if rf, ok := ret.Get(0).(func(func(context.Context, []byte) error) error); ok {
 		r0 = rf(action)
 	} else {
 		r0 = ret.Error(0)
@@ -89,14 +91,14 @@ type SegmentManager_ForEach_Call struct {
 }
 
 // ForEach is a helper method to define mock.On call
-//   - action func([]byte) error
+//   - action func(context.Context , []byte) error
 func (_e *SegmentManager_Expecter) ForEach(action interface{}) *SegmentManager_ForEach_Call {
 	return &SegmentManager_ForEach_Call{Call: _e.mock.On("ForEach", action)}
 }
 
-func (_c *SegmentManager_ForEach_Call) Run(run func(action func([]byte) error)) *SegmentManager_ForEach_Call {
+func (_c *SegmentManager_ForEach_Call) Run(run func(action func(context.Context, []byte) error)) *SegmentManager_ForEach_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(func([]byte) error))
+		run(args[0].(func(context.Context, []byte) error))
 	})
 	return _c
 }
@@ -106,7 +108,7 @@ func (_c *SegmentManager_ForEach_Call) Return(_a0 error) *SegmentManager_ForEach
 	return _c
 }
 
-func (_c *SegmentManager_ForEach_Call) RunAndReturn(run func(func([]byte) error) error) *SegmentManager_ForEach_Call {
+func (_c *SegmentManager_ForEach_Call) RunAndReturn(run func(func(context.Context, []byte) error) error) *SegmentManager_ForEach_Call {
 	_c.Call.Return(run)
 	return _c
 }

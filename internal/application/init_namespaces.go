@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"errors"
 
 	"github.com/neekrasov/kvdb/internal/config"
@@ -11,13 +12,17 @@ import (
 	"go.uber.org/zap"
 )
 
-func initNamespacesStorage(storage *storage.Storage, cfg *config.Config) (*identity.NamespaceStorage, error) {
+func initNamespacesStorage(
+	ctx context.Context,
+	storage *storage.Storage,
+	cfg *config.Config,
+) (*identity.NamespaceStorage, error) {
 	nsStorage := identity.NewNamespaceStorage(storage)
 	if cfg.Replication != nil && cfg.Replication.ReplicaType == slaveType {
 		return nsStorage, nil
 	}
 
-	err := nsStorage.Save(models.DefaultNameSpace)
+	err := nsStorage.Save(ctx, models.DefaultNameSpace)
 	if err != nil {
 		logger.Warn("save default namespace failed",
 			zap.Error(err), zap.String("name", models.DefaultNameSpace))
@@ -28,14 +33,14 @@ func initNamespacesStorage(storage *storage.Storage, cfg *config.Config) (*ident
 			return nil, errors.New("invalid namaspace name in default list")
 		}
 
-		err := nsStorage.Save(namespace.Name)
+		err := nsStorage.Save(ctx, namespace.Name)
 		if err != nil {
 			logger.Warn("save namespace in default list failed",
 				zap.Error(err), zap.String("name", namespace.Name))
 			continue
 		}
 
-		if _, err := nsStorage.Append(namespace.Name); err != nil {
+		if _, err := nsStorage.Append(ctx, namespace.Name); err != nil {
 			logger.Warn("save default namespace in global list failed",
 				zap.Error(err), zap.String("name", namespace.Name))
 		}

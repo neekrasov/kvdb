@@ -24,7 +24,7 @@ func TestWAL_SetAndDel(t *testing.T) {
 	tests := []struct {
 		name         string
 		prepareMocks func(mockSegmentManager *mocks.SegmentManager)
-		operation    func(w *wal.WAL) error
+		operation    func(ctx context.Context, w *wal.WAL) error
 		expectError  bool
 		cancel       bool
 		timeout      time.Duration
@@ -33,7 +33,7 @@ func TestWAL_SetAndDel(t *testing.T) {
 			name: "Success - Set key-value first ctx done",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
 			},
-			operation: func(w *wal.WAL) error {
+			operation: func(ctx context.Context, w *wal.WAL) error {
 				return nil
 			},
 			expectError: false,
@@ -43,15 +43,17 @@ func TestWAL_SetAndDel(t *testing.T) {
 		{
 			name: "Success - Set key-value ticker flush",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
-				mockSegmentManager.On("Write", mock.Anything, false).Run(func(args mock.Arguments) {
-					entries := args.Get(0).([]wal.WriteEntry)
-					for _, entry := range entries {
-						entry.Set(nil)
-					}
-				}).Return(nil).Once()
+				mockSegmentManager.On("Write", mock.Anything, false).Run(
+					func(args mock.Arguments) {
+						entries := args.Get(0).([]wal.WriteEntry)
+						for _, entry := range entries {
+							entry.Set(nil)
+						}
+					},
+				).Return(nil).Once()
 			},
-			operation: func(w *wal.WAL) error {
-				return w.Set("key1", "value1")
+			operation: func(ctx context.Context, w *wal.WAL) error {
+				return w.Set(ctx, "key1", "value1")
 			},
 			expectError: false,
 			timeout:     time.Millisecond * 10,
@@ -59,20 +61,21 @@ func TestWAL_SetAndDel(t *testing.T) {
 		{
 			name: "Success - Set key-value flush batches",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
-				mockSegmentManager.On("Write", mock.Anything, false).Run(func(args mock.Arguments) {
-					entries := args.Get(0).([]wal.WriteEntry)
-					for _, entry := range entries {
-						entry.Set(nil)
-					}
-				}).Return(nil).Once()
+				mockSegmentManager.On("Write", mock.Anything, false).Run(
+					func(args mock.Arguments) {
+						entries := args.Get(0).([]wal.WriteEntry)
+						for _, entry := range entries {
+							entry.Set(nil)
+						}
+					}).Return(nil).Once()
 			},
-			operation: func(w *wal.WAL) error {
+			operation: func(ctx context.Context, w *wal.WAL) error {
 				wg := errgroup.Group{}
 				wg.Go(func() error {
-					return w.Set("key1", "value1")
+					return w.Set(ctx, "key1", "value1")
 				})
 				wg.Go(func() error {
-					return w.Set("key2", "value2")
+					return w.Set(ctx, "key2", "value2")
 				})
 				return wg.Wait()
 			},
@@ -82,15 +85,17 @@ func TestWAL_SetAndDel(t *testing.T) {
 		{
 			name: "Success - Delete key",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
-				mockSegmentManager.On("Write", mock.Anything, false).Run(func(args mock.Arguments) {
-					entries := args.Get(0).([]wal.WriteEntry)
-					for _, entry := range entries {
-						entry.Set(nil)
-					}
-				}).Return(nil).Once()
+				mockSegmentManager.On("Write", mock.Anything, false).Run(
+					func(args mock.Arguments) {
+						entries := args.Get(0).([]wal.WriteEntry)
+						for _, entry := range entries {
+							entry.Set(nil)
+						}
+					},
+				).Return(nil).Once()
 			},
-			operation: func(w *wal.WAL) error {
-				return w.Del("key1")
+			operation: func(ctx context.Context, w *wal.WAL) error {
+				return w.Del(ctx, "key1")
 			},
 			expectError: false,
 			timeout:     time.Millisecond,
@@ -98,16 +103,17 @@ func TestWAL_SetAndDel(t *testing.T) {
 		{
 			name: "Error - Write failed",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
-				mockSegmentManager.On("Write", mock.Anything, false).Run(func(args mock.Arguments) {
-					time.Sleep(time.Millisecond * 5)
-					entries := args.Get(0).([]wal.WriteEntry)
-					for _, entry := range entries {
-						entry.Set(nil)
-					}
-				}).Return(errors.New("write error"))
+				mockSegmentManager.On("Write", mock.Anything, false).Run(
+					func(args mock.Arguments) {
+						time.Sleep(time.Millisecond * 5)
+						entries := args.Get(0).([]wal.WriteEntry)
+						for _, entry := range entries {
+							entry.Set(nil)
+						}
+					}).Return(errors.New("write error"))
 			},
-			operation: func(w *wal.WAL) error {
-				return w.Set("key1", "value1")
+			operation: func(ctx context.Context, w *wal.WAL) error {
+				return w.Set(ctx, "key1", "value1")
 			},
 			expectError: false,
 			timeout:     time.Millisecond,
@@ -123,7 +129,7 @@ func TestWAL_SetAndDel(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			w.Start(ctx)
 
-			err := tt.operation(w)
+			err := tt.operation(ctx, w)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -143,20 +149,20 @@ func TestWAL_Recover(t *testing.T) {
 	tests := []struct {
 		name         string
 		prepareMocks func(mockSegmentManager *mocks.SegmentManager)
-		applyFunc    func(entry wal.LogEntry) error
+		applyFunc    func(ctx context.Context, entry []wal.LogEntry) error
 		expectError  bool
 	}{
 		{
 			name: "Error - error decoding log entry",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
 				mockSegmentManager.On("ForEach", mock.Anything).Run(func(args mock.Arguments) {
-					action := args.Get(0).(func([]byte) error)
-					_ = action([]byte("invalid data"))
+					action := args.Get(0).(func(context.Context, []byte) error)
+					_ = action(context.Background(), []byte("invalid data"))
 				}).Return(nil).Once()
 			},
-			applyFunc: func(entry wal.LogEntry) error {
-				assert.Equal(t, compute.SetCommandID, entry.Operation)
-				assert.Equal(t, []string{"key1", "value1"}, entry.Args)
+			applyFunc: func(ctx context.Context, entry []wal.LogEntry) error {
+				assert.Equal(t, compute.SetCommandID, entry[0].Operation)
+				assert.Equal(t, []string{"key1", "value1"}, entry[0].Args)
 				return nil
 			},
 			expectError: false,
@@ -166,7 +172,7 @@ func TestWAL_Recover(t *testing.T) {
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
 				mockSegmentManager.On("ForEach", mock.Anything).Return(errors.New("foreach error")).Once()
 			},
-			applyFunc: func(entry wal.LogEntry) error {
+			applyFunc: func(ctx context.Context, entry []wal.LogEntry) error {
 				return nil
 			},
 			expectError: true,
@@ -182,7 +188,7 @@ func TestWAL_Recover(t *testing.T) {
 			name: "Error - applyFunc returns error",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
 				mockSegmentManager.On("ForEach", mock.Anything).Run(func(args mock.Arguments) {
-					action := args.Get(0).(func([]byte) error)
+					action := args.Get(0).(func(context.Context, []byte) error)
 					entry := wal.LogEntry{
 						Operation: compute.SetCommandID,
 						Args:      []string{"key1", "value1"},
@@ -191,10 +197,10 @@ func TestWAL_Recover(t *testing.T) {
 					if err := entry.Encode(&buffer); err != nil {
 						t.Fatalf("failed to encode entry: %v", err)
 					}
-					_ = action(buffer.Bytes())
+					_ = action(context.Background(), buffer.Bytes())
 				}).Return(nil).Once()
 			},
-			applyFunc: func(entry wal.LogEntry) error {
+			applyFunc: func(ctx context.Context, entry []wal.LogEntry) error {
 				return errors.New("apply func error")
 			},
 			expectError: false,
@@ -203,7 +209,7 @@ func TestWAL_Recover(t *testing.T) {
 			name: "Success - applyFunc returns nil",
 			prepareMocks: func(mockSegmentManager *mocks.SegmentManager) {
 				mockSegmentManager.On("ForEach", mock.Anything).Run(func(args mock.Arguments) {
-					action := args.Get(0).(func([]byte) error)
+					action := args.Get(0).(func(context.Context, []byte) error)
 					entry := wal.LogEntry{
 						Operation: compute.SetCommandID,
 						Args:      []string{"key1", "value1"},
@@ -212,10 +218,10 @@ func TestWAL_Recover(t *testing.T) {
 					if err := entry.Encode(&buffer); err != nil {
 						t.Fatalf("failed to encode entry: %v", err)
 					}
-					_ = action(buffer.Bytes())
+					_ = action(context.Background(), buffer.Bytes())
 				}).Return(nil).Once()
 			},
-			applyFunc: func(entry wal.LogEntry) error {
+			applyFunc: func(ctx context.Context, entry []wal.LogEntry) error {
 				return nil
 			},
 			expectError: false,
@@ -229,7 +235,7 @@ func TestWAL_Recover(t *testing.T) {
 
 			w := wal.NewWAL(mockSegmentManager, 1, time.Second)
 
-			err := w.Recover(tt.applyFunc)
+			_, err := w.Recover(tt.applyFunc)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {

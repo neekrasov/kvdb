@@ -79,19 +79,19 @@ func (a *Application) Start(ctx context.Context) error {
 		options = append(options, storage.WithReplicaStreamOpt(slave.Stream()))
 	}
 
-	dstorage, err := storage.NewStorage(engine, options...)
+	dstorage, err := storage.NewStorage(ctx, engine, options...)
 	if err != nil {
 		return fmt.Errorf("initialize storage failed: %w", err)
 	}
-	namespaceStorage, err := initNamespacesStorage(dstorage, a.cfg)
+	namespaceStorage, err := initNamespacesStorage(ctx, dstorage, a.cfg)
 	if err != nil {
 		return fmt.Errorf("initialize default namespaces failed: %w", err)
 	}
-	usersStorage, err := initUserStorage(dstorage, a.cfg)
+	usersStorage, err := initUserStorage(ctx, dstorage, a.cfg)
 	if err != nil {
 		return fmt.Errorf("initialize default users failed: %w", err)
 	}
-	rolesStorage, err := initRolesStorage(dstorage, a.cfg)
+	rolesStorage, err := initRolesStorage(ctx, dstorage, a.cfg)
 	if err != nil {
 		return fmt.Errorf("initialize default roles failed: %w", err)
 	}
@@ -134,7 +134,7 @@ func (a *Application) Start(ctx context.Context) error {
 				return err
 			}
 
-			_, err = db.Login(sessionID, string(buffer[:n]))
+			_, err = db.Login(ctx, sessionID, string(buffer[:n]))
 			if err != nil {
 				_, err = conn.Write([]byte(database.WrapError(err)))
 				if err != nil {
@@ -155,7 +155,7 @@ func (a *Application) Start(ctx context.Context) error {
 
 	tcpServerOpts = append(tcpServerOpts, tcp.WithDisconnectionHandler(
 		func(ctx context.Context, sessionID string, conn net.Conn) error {
-			db.Logout(sessionID)
+			db.Logout(ctx, sessionID)
 			return nil
 		},
 	))
@@ -166,7 +166,7 @@ func (a *Application) Start(ctx context.Context) error {
 	}
 
 	server.Start(ctx, func(ctx context.Context, sessionID string, request []byte) []byte {
-		return []byte(db.HandleQuery(sessionID, string(request)))
+		return []byte(db.HandleQuery(ctx, sessionID, string(request)))
 	})
 
 	if err = server.Close(); err != nil {

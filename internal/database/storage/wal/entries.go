@@ -9,10 +9,16 @@ import (
 	"github.com/neekrasov/kvdb/pkg/sync"
 )
 
-// LogEntry - represents a single log entry.
+// LogEntry - represents a single log entry in the Write-Ahead Log (WAL).
+// It is the minimal unit that is written to the WAL.
 type LogEntry struct {
+	// LSN (Log Sequence Number) is a unique identifier for the log entry.
+	// It is used to ensure the order of log entries and for recovery purposes.
+	LSN int64
+	// Operation represents the type of operation being logged.
 	Operation compute.CommandID
-	Args      []string
+	// Args contains the arguments or parameters associated with the operation.
+	Args []string
 }
 
 // Encode - encodes a LogEntry.
@@ -40,9 +46,10 @@ type WriteEntry struct {
 }
 
 // NewWriteEntry - creates a new WriteEntry.
-func NewWriteEntry(op compute.CommandID, args []string) WriteEntry {
+func NewWriteEntry(lsn int64, op compute.CommandID, args []string) WriteEntry {
 	return WriteEntry{
 		log: LogEntry{
+			LSN:       lsn,
 			Operation: op,
 			Args:      args,
 		},

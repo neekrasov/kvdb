@@ -1,6 +1,7 @@
 package identity_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/neekrasov/kvdb/internal/database/identity"
@@ -16,14 +17,15 @@ func TestRolesStorage(t *testing.T) {
 	mockStorage := mocks.NewStorage(t)
 	rolesStorage := identity.NewRolesStorage(mockStorage)
 
+	ctx := context.Background()
 	t.Run("Test Save - success", func(t *testing.T) {
 		role := models.Role{Name: "admin"}
 		key := storage.MakeKey(models.SystemRoleNameSpace, role.Name)
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
-		mockStorage.On("Set", key, mock.Anything).Return(nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Set", mock.Anything, key, mock.Anything).Return(nil).Once()
 
-		err := rolesStorage.Save(&role)
+		err := rolesStorage.Save(ctx, &role)
 		assert.NoError(t, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -32,9 +34,9 @@ func TestRolesStorage(t *testing.T) {
 		role := models.Role{Name: "admin"}
 		key := storage.MakeKey(models.SystemRoleNameSpace, role.Name)
 
-		mockStorage.On("Get", key).Return("{}", nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("{}", nil).Once()
 
-		err := rolesStorage.Save(&role)
+		err := rolesStorage.Save(ctx, &role)
 		assert.Equal(t, identity.ErrRoleAlreadyExists, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -44,9 +46,9 @@ func TestRolesStorage(t *testing.T) {
 		roleBytes, _ := gob.Encode(role)
 		key := storage.MakeKey(models.SystemRoleNameSpace, role.Name)
 
-		mockStorage.On("Get", key).Return(string(roleBytes), nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return(string(roleBytes), nil).Once()
 
-		retrievedRole, err := rolesStorage.Get(role.Name)
+		retrievedRole, err := rolesStorage.Get(ctx, role.Name)
 		assert.NoError(t, err)
 		assert.Equal(t, role.Name, retrievedRole.Name)
 		mockStorage.AssertExpectations(t)
@@ -56,9 +58,9 @@ func TestRolesStorage(t *testing.T) {
 		roleName := "nonexistent"
 		key := storage.MakeKey(models.SystemRoleNameSpace, roleName)
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
 
-		_, err := rolesStorage.Get(roleName)
+		_, err := rolesStorage.Get(ctx, roleName)
 		assert.Equal(t, identity.ErrRoleNotFound, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -67,10 +69,10 @@ func TestRolesStorage(t *testing.T) {
 		roleName := "temp"
 		key := storage.MakeKey(models.SystemRoleNameSpace, roleName)
 
-		mockStorage.On("Get", key).Return("{}", nil).Once()
-		mockStorage.On("Del", key).Return(nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("{}", nil).Once()
+		mockStorage.On("Del", mock.Anything, key).Return(nil).Once()
 
-		err := rolesStorage.Delete(roleName)
+		err := rolesStorage.Delete(ctx, roleName)
 		assert.NoError(t, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -79,9 +81,9 @@ func TestRolesStorage(t *testing.T) {
 		roleName := "nonexistent"
 		key := storage.MakeKey(models.SystemRoleNameSpace, roleName)
 
-		mockStorage.On("Get", key).Return("", storage.ErrKeyNotFound).Once()
+		mockStorage.On("Get", mock.Anything, key).Return("", storage.ErrKeyNotFound).Once()
 
-		err := rolesStorage.Delete(roleName)
+		err := rolesStorage.Delete(ctx, roleName)
 		assert.Equal(t, identity.ErrRoleNotFound, err)
 		mockStorage.AssertExpectations(t)
 	})
@@ -91,10 +93,10 @@ func TestRolesStorage(t *testing.T) {
 		key := models.SystemRolesKey
 		listBytes, _ := gob.Encode([]string{})
 
-		mockStorage.On("Get", key).Return(string(listBytes), nil).Once()
-		mockStorage.On("Set", key, mock.Anything).Return(nil).Once()
+		mockStorage.On("Get", mock.Anything, key).Return(string(listBytes), nil).Once()
+		mockStorage.On("Set", mock.Anything, key, mock.Anything).Return(nil).Once()
 
-		roles, err := rolesStorage.Append(role)
+		roles, err := rolesStorage.Append(ctx, role)
 		assert.NoError(t, err)
 		assert.Contains(t, roles, role)
 		mockStorage.AssertExpectations(t)
