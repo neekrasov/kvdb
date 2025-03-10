@@ -6,6 +6,7 @@ import (
 
 	"github.com/neekrasov/kvdb/pkg/ctxutil"
 	"github.com/neekrasov/kvdb/pkg/logger"
+	pkgsync "github.com/neekrasov/kvdb/pkg/sync"
 	"go.uber.org/zap"
 )
 
@@ -62,6 +63,22 @@ func (e *Engine) Get(ctx context.Context, key string) (string, bool) {
 	)
 
 	return val, found
+}
+
+// Watch - watches the key and returns the value if it has changed.
+func (e *Engine) Watch(ctx context.Context, key string) pkgsync.FutureString {
+	txID := ctxutil.ExtractTxID(ctx)
+	sessionID := ctxutil.ExtractSessionID(ctx)
+
+	n, part := e.part(txID, sessionID, key)
+	logger.Debug(
+		"successfull watch query",
+		zap.Int64("tx", txID),
+		zap.String("session", sessionID),
+		zap.Int("part", n),
+	)
+
+	return part.Watch(ctx, key)
 }
 
 // Del - removes a key-value pair from memory.

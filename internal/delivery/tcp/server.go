@@ -16,7 +16,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const defaultConnIDLen = 16
+const (
+	defaultConnIDLen   = 16
+	defaultIdleTimeout = 30 * time.Second
+)
 
 type (
 	ConnectionID      = string
@@ -60,6 +63,10 @@ func NewServer(address string, opts ...ServerOption) (*Server, error) {
 
 	if mcons := server.maxConnections; mcons > 0 {
 		server.semaphore = pkgsync.NewSemaphore(mcons)
+	}
+
+	if server.idleTimeout == 0 {
+		server.idleTimeout = defaultIdleTimeout
 	}
 
 	return server, nil
@@ -110,7 +117,7 @@ func (s *Server) Start(ctx context.Context, handler Handler) {
 // handleConnection - manages a single client connection lifecycle
 func (s *Server) handleConnection(
 	ctx context.Context,
-	connID ConnectionID,
+	sessionID ConnectionID,
 	conn net.Conn,
 	handler Handler,
 ) {
@@ -119,12 +126,12 @@ func (s *Server) handleConnection(
 			logger.Error(
 				"captured panic", zap.Any("panic", v),
 				zap.String("stack", string(debug.Stack())),
-				zap.String("conn_id", connID))
+				zap.String("session", sessionID))
 		}
 
 		if s.ondisconnect != nil {
-			if err := s.ondisconnect(ctx, connID, conn); err != nil {
-				logger.Warn("executing diconnection handler failed", zap.Error(err))
+			if err := s.ondisconnect(ctx, sessionID, conn); err != nil {
+				logger.Warn("executing disconnection handler failed", zap.Error(err))
 			}
 		}
 
@@ -132,46 +139,65 @@ func (s *Server) handleConnection(
 			logger.Warn(
 				"failed to close connection",
 				zap.Error(err),
-				zap.String("conn_id", connID),
+				zap.String("session", sessionID),
 			)
 		}
 		logger.Debug("client disconnected",
 			zap.Stringer("address", conn.RemoteAddr()),
-			zap.String("conn_id", connID))
-
+			zap.String("session", sessionID))
 	}()
 
 	if s.onconnect != nil {
-		if err := s.onconnect(ctx, connID, conn); err != nil {
+		if err := s.onconnect(ctx, sessionID, conn); err != nil {
 			logger.Warn("executing connect handler failed", zap.Error(err))
 		}
 	}
 
 	buffer := make([]byte, s.bufferSize)
+	resCh := make(chan []byte)
+	errCh := make(chan error)
 	for {
+		// TODO: add heartbeat and remove deadline.
+		deadline := time.Now().Add(s.idleTimeout)
+		if err := conn.SetDeadline(deadline); err != nil {
+			logger.Warn("failed to set read/write deadline", zap.Error(err))
+			return
+		}
+
+		ctx, cancel := context.WithDeadline(ctx, deadline)
+		defer cancel()
+
+		go func() {
+			n, err := Read(conn, buffer, int(s.bufferSize))
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			resCh <- handler(ctx, sessionID, buffer[:n])
+		}()
+
 		select {
 		case <-ctx.Done():
 			return
-		default:
-		}
-
-		if s.idleTimeout != 0 {
-			if err := conn.SetDeadline(time.Now().Add(s.idleTimeout)); err != nil {
-				logger.Warn("failed to set read/write deadline", zap.Error(err))
+		case err := <-errCh:
+			if err != nil {
+				logger.Warn("error reading from connection",
+					zap.Stringer("address", conn.RemoteAddr()),
+					zap.String("session", sessionID),
+					zap.Error(err),
+				)
 				return
 			}
-		}
-
-		n, err := Read(conn, buffer, int(s.bufferSize))
-		if err != nil {
-			return
-		}
-
-		resp := handler(ctx, connID, buffer[:n])
-		if _, err := conn.Write(resp); err != nil {
-			logger.Warn("failed to write data", zap.String("conn_id", connID),
-				zap.Stringer("address", conn.RemoteAddr()), zap.Error(err))
-			return
+		case resp := <-resCh:
+			if _, err := conn.Write(resp); err != nil {
+				logger.Warn("failed to write data",
+					zap.Stringer("address", conn.RemoteAddr()),
+					zap.String("session", sessionID),
+					zap.Error(err),
+				)
+				return
+			}
 		}
 	}
 }

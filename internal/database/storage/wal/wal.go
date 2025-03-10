@@ -11,7 +11,7 @@ import (
 
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/pkg/ctxutil"
-	pkgSync "github.com/neekrasov/kvdb/pkg/sync"
+	pkgsync "github.com/neekrasov/kvdb/pkg/sync"
 
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
@@ -119,7 +119,7 @@ func (w *WAL) push(ctx context.Context, op compute.CommandID, args []string) err
 	)
 
 	entry := NewWriteEntry(txID, op, args)
-	pkgSync.WithLock(&w.mu, func() {
+	pkgsync.WithLock(&w.mu, func() {
 		w.batch = append(w.batch, entry)
 		if len(w.batch) >= w.batchSize {
 			w.batches <- struct{}{}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	mocks "github.com/neekrasov/kvdb/internal/mocks/storage"
+	pkgsync "github.com/neekrasov/kvdb/pkg/sync"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -72,5 +73,13 @@ func TestStorage(t *testing.T) {
 
 		assert.ErrorIs(t, err, storage.ErrKeyNotFound)
 		mockEngine.AssertCalled(t, "Del", mock.Anything, key)
+	})
+
+	t.Run("Watch", func(t *testing.T) {
+		key := "testKey"
+		mockEngine.On("Watch", mock.Anything, key).Return(pkgsync.NewFuture[string]()).Once()
+
+		future := store.Watch(ctx, key)
+		assert.NotNil(t, future)
 	})
 }

@@ -1,6 +1,9 @@
 package sync
 
-type FutureError = Future[error]
+type (
+	FutureError  = Future[error]
+	FutureString = Future[string]
+)
 
 type Future[T any] struct {
 	result chan T

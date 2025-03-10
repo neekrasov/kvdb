@@ -6,6 +6,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
+	pkgsync "github.com/neekrasov/kvdb/pkg/sync"
 )
 
 // Parser - parses user queries into executable commands.
@@ -16,12 +17,14 @@ type Parser interface {
 
 // Storage - interface for storing, retrieving, and deleting key-value pairs.
 type Storage interface {
-	// Set stores a value for a given key.
+	// Set - stores a value for a given key.
 	Set(ctx context.Context, key, value string) error
-	// Get retrieves the value associated with a given key.
+	// Get - retrieves the value associated with a given key.
 	Get(ctx context.Context, key string) (string, error)
-	// Del removes a key and its value from the storage.
+	// Del - removes a key and its value from the storage.
 	Del(ctx context.Context, key string) error
+	// Watch - watches the key and returns the value if it has changed.
+	Watch(ctx context.Context, key string) pkgsync.FutureString
 }
 
 // NamespacesStorage - interface for managing namespaces.
@@ -146,6 +149,7 @@ func New(
 		compute.CommandGET:             {Func: db.get},
 		compute.CommandSET:             {Func: db.set},
 		compute.CommandDEL:             {Func: db.del},
+		compute.CommandWATCH:           {Func: db.watch},
 	}
 
 	return &db

@@ -25,6 +25,7 @@ type (
 		Set(ctx context.Context, key, value string)
 		Get(ctx context.Context, key string) (string, bool)
 		Del(ctx context.Context, key string) error
+		Watch(ctx context.Context, key string) pkgsync.FutureString
 	}
 
 	// WAL - Write-Ahead Log interface for data persistence.
@@ -130,6 +131,14 @@ func (s *Storage) Del(ctx context.Context, key string) error {
 	}
 
 	return s.engine.Del(ctx, key)
+}
+
+// Watch - watches the key and returns the value if it has changed.
+func (s *Storage) Watch(ctx context.Context, key string) pkgsync.FutureString {
+	txID := s.gen.Generate()
+	ctx = ctxutil.InjectTxID(ctx, txID)
+
+	return s.engine.Watch(ctx, key)
 }
 
 // MakeKey - constructs a key by combining a namespace and a key name using a colon (:).

@@ -1,19 +1,24 @@
 package engine
 
 import (
+	"context"
 	"sync"
+
+	pkgsync "github.com/neekrasov/kvdb/pkg/sync"
 )
 
 // partitionMap - represents one data partition.
 type partitionMap struct {
-	data map[string]string
-	mu   sync.RWMutex
+	mu       sync.RWMutex
+	data     map[string]string
+	watchers map[string]*Watcher
 }
 
 // newPartMap - returns a new partition instance
 func newPartMap() *partitionMap {
 	return &partitionMap{
-		data: make(map[string]string),
+		data:     make(map[string]string),
+		watchers: map[string]*Watcher{},
 	}
 }
 
@@ -21,6 +26,11 @@ func newPartMap() *partitionMap {
 func (p *partitionMap) Set(key, value string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	watcher, ok := p.watchers[key]
+	if ok {
+		watcher.Set(value)
+	}
 
 	p.data[key] = value
 }
@@ -41,4 +51,29 @@ func (p *partitionMap) Del(key string) error {
 
 	delete(p.data, key)
 	return nil
+}
+
+// Watch - watches the key and returns the value if it has changed.
+func (p *partitionMap) Watch(ctx context.Context, key string) pkgsync.FutureString {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	future := pkgsync.NewFuture[string]()
+	go func() {
+		watcher, ok := p.watchers[key]
+		if ok {
+			future.Set(watcher.Watch(ctx))
+		}
+
+		val, ok := p.Get(key)
+		if !ok {
+			val = ""
+		}
+
+		watcher = NewWatcher(val)
+		p.watchers[key] = watcher
+		future.Set(watcher.Watch(ctx))
+	}()
+
+	return future
 }

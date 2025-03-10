@@ -101,6 +101,10 @@ func CLI(
 
 		res, err := client.Raw(ctx, query)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
+
 			if _, err = rl.Write([]byte(database.WrapError(err) + "\n")); err != nil {
 				return errors.Join(ErrWriteLineFailed, err)
 			}

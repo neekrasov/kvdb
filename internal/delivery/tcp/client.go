@@ -64,11 +64,8 @@ func (c *Client) Send(ctx context.Context, request []byte) ([]byte, error) {
 
 	if c.idleTimeout > 0 {
 		deadline := time.Now().Add(c.idleTimeout)
-		if err := c.connection.SetWriteDeadline(deadline); err != nil {
+		if err := c.connection.SetDeadline(deadline); err != nil {
 			return nil, fmt.Errorf("failed to set write deadline: %w", err)
-		}
-		if err := c.connection.SetReadDeadline(deadline); err != nil {
-			return nil, fmt.Errorf("failed to set read deadline: %w", err)
 		}
 	}
 

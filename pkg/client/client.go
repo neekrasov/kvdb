@@ -63,8 +63,7 @@ type Client struct {
 
 // New - creates and returns a new Client with the provided configuration.
 func New(
-	ctx context.Context,
-	cfg *Config,
+	ctx context.Context, cfg *Config,
 	clientFactory NetClientFactory,
 ) (*Client, error) {
 	if cfg.Address == "" {
@@ -158,28 +157,37 @@ func (k *Client) sendWithRetries(ctx context.Context, request []byte) (string, e
 		case <-ctx.Done():
 			return "", ctx.Err()
 		default:
-			attempt++
-			if attempt > k.cfg.MaxReconnectAttempts {
-				return "", ErrMaxReconnects
-			}
+		}
 
-			resBytes, err := k.client.Send(ctx, request)
-			if err == nil {
-				resString := string(resBytes)
-				if strings.Contains(resString, database.ErrAuthenticationRequired.Error()) {
-					if err := k.auth(ctx); err != nil {
-						return "", fmt.Errorf("re-authentication failed: %w", err)
-					}
-					time.Sleep(time.Second)
-					continue
+		attempt++
+		if attempt > k.cfg.MaxReconnectAttempts {
+			return "", ErrMaxReconnects
+		}
+
+		// TODO: add heartbeats.
+		resBytes, err := k.client.Send(ctx, request)
+		if err == nil {
+			resString := string(resBytes)
+			if strings.Contains(resString,
+				database.ErrAuthenticationRequired.Error(),
+			) {
+				if err := k.auth(ctx); err != nil {
+					return "", fmt.Errorf("re-authentication failed: %w", err)
 				}
 
-				return resString, nil
+				time.Sleep(time.Second)
+				continue
 			}
 
-			if err := k.reconnect(ctx, attempt); err != nil {
-				return "", fmt.Errorf("reconnect failed: %w", err)
-			}
+			return resString, nil
+		}
+
+		if errors.Is(err, tcp.ErrTimeout) {
+			continue
+		}
+
+		if err := k.reconnect(ctx, attempt); err != nil {
+			return "", fmt.Errorf("reconnect failed: %w", err)
 		}
 	}
 }

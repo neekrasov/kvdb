@@ -27,6 +27,7 @@ func initCommandTrie() *compute.TrieNode {
 	root.Insert([]string{"ns"}, compute.CommandNAMESPACES)
 	root.Insert([]string{"sessions"}, compute.CommandSESSIONS)
 	root.Insert([]string{"help"}, compute.CommandHELP)
+	root.Insert([]string{"watch"}, compute.CommandWATCH)
 
 	return root
 }

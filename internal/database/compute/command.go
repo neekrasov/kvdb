@@ -102,9 +102,6 @@ const (
 	CommandGETUSER    CommandType = "get user"
 	CommandCREATEUSER CommandType = "create user"
 	CommandDELETEUSER CommandType = "delete user"
-
-	CommandASSIGNROLE CommandType = "assign role"
-	CommandDIVESTROLE CommandType = "divest role"
 	CommandUSERS      CommandType = "users"
 	CommandSESSIONS   CommandType = "sessions"
 	CommandME         CommandType = "me"
@@ -114,6 +111,8 @@ const (
 	CommandCREATEROLE CommandType = "create role"
 	CommandDELETEROLE CommandType = "delete role"
 	CommandROLES      CommandType = "roles"
+	CommandASSIGNROLE CommandType = "assign role"
+	CommandDIVESTROLE CommandType = "divest role"
 
 	// Namespaces commands
 	CommandCREATENAMESPACE CommandType = "create ns"
@@ -124,6 +123,9 @@ const (
 
 	// Help command
 	CommandHELP CommandType = "help"
+
+	// Watch command
+	CommandWATCH CommandType = "watch"
 )
 
 // String - convert CommandType into string/
@@ -167,7 +169,7 @@ func (cmd *Command) Validate() error {
 	case CommandGET, CommandDEL, CommandDELETEROLE,
 		CommandCREATENAMESPACE, CommandDELETENAMESPACE,
 		CommandSETNS, CommandDELETEUSER, CommandGETUSER,
-		CommandGETROLE:
+		CommandGETROLE, CommandWATCH:
 		if len(cmd.Args) != 1 {
 			return fmt.Errorf("%w: %s command requires exactly 1 argument", ErrInvalidCommand, cmd.Type)
 		}

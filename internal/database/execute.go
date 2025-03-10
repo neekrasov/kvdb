@@ -461,3 +461,23 @@ func (db *Database) setNamespace(ctx context.Context, user *models.User, args []
 	user.ActiveRole = *role
 	return okPrefix
 }
+
+// watch - watches the key and returns the value if it has changed.
+func (db *Database) watch(ctx context.Context, user *models.User, args []string) string {
+	key := storage.MakeKey(user.ActiveRole.Namespace, args[0])
+	future := db.storage.Watch(ctx, key)
+
+	ch := make(chan string)
+	go func() {
+		ch <- future.Get()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return okPrefix
+		case val := <-ch:
+			return WrapOK(val)
+		}
+	}
+}
