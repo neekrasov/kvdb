@@ -11,7 +11,7 @@ import (
 func TestSessionStorage(t *testing.T) {
 	t.Parallel()
 
-	sessStorage := NewSessionStorage()
+	sessStorage := NewSessionStorage(time.Hour)
 	t.Run("Create session", func(t *testing.T) {
 		err := sessStorage.Create("1", &models.User{})
 		assert.NoError(t, err)

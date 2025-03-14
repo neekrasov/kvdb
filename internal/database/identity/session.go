@@ -15,14 +15,16 @@ var (
 
 // SessionStorage - a struct that manages user sessions, including creation, retrieval, and deletion.
 type SessionStorage struct {
-	mu       sync.RWMutex
-	sessions map[string]models.Session
+	mu              sync.RWMutex
+	sessions        map[string]models.Session
+	sessionLifeTime time.Duration
 }
 
 // NewSessionStorage - initializes and returns a new SessionStorage instance.
-func NewSessionStorage() *SessionStorage {
+func NewSessionStorage(defaultExpiration time.Duration) *SessionStorage {
 	return &SessionStorage{
-		sessions: make(map[models.SessionID]models.Session),
+		sessions:        make(map[models.SessionID]models.Session),
+		sessionLifeTime: defaultExpiration,
 	}
 }
 
@@ -36,12 +38,16 @@ func (s *SessionStorage) Create(id models.SessionID, user *models.User) error {
 	}
 
 	now := time.Now()
-	s.sessions[id] = models.Session{
+	session := models.Session{
 		User:      user,
-		ExpiresAt: now.Add(24 * time.Hour), // TODO: add to config file
 		CreatedAt: now,
 	}
 
+	if s.sessionLifeTime > 0 {
+		session.ExpiresAt = now.Add(s.sessionLifeTime)
+	}
+
+	s.sessions[id] = session
 	return nil
 }
 
@@ -51,7 +57,11 @@ func (s *SessionStorage) Get(id string) (*models.Session, error) {
 	defer s.mu.RUnlock()
 
 	session, exists := s.sessions[id]
-	if !exists || time.Now().After(session.ExpiresAt) {
+	if !exists {
+		return nil, ErrExpiresSession
+	}
+
+	if !session.ExpiresAt.IsZero() && time.Now().After(session.ExpiresAt) {
 		return nil, ErrExpiresSession
 	}
 

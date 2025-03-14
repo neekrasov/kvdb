@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database"
@@ -23,9 +24,7 @@ type Application struct {
 
 // New - creates and returns a new instance of Application.
 func New(cfg *config.Config) *Application {
-	return &Application{
-		cfg: cfg,
-	}
+	return &Application{cfg: cfg}
 }
 
 // Start - initializes configuration, logger, database, and server, then starts the server and handles termination signals.
@@ -132,10 +131,15 @@ func (a *Application) Start(ctx context.Context) error {
 		bufferSize = size
 	}
 
+	var sessionLifeTime time.Duration
+	if a.cfg.PwdPolicyConfig != nil {
+		sessionLifeTime = a.cfg.PwdPolicyConfig.SessionLifeTime
+	}
+
 	db := database.New(
 		compute.NewParser(initCommandTrie()), dstorage,
 		usersStorage, namespaceStorage, rolesStorage,
-		identity.NewSessionStorage(), a.cfg.Root,
+		identity.NewSessionStorage(sessionLifeTime), a.cfg.Root,
 	)
 
 	onConnectHandler := initOnConnectHandler(bufferSize, db)

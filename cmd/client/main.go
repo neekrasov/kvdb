@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"log"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/chzyer/readline"
 	"github.com/neekrasov/kvdb/internal/database"
 	"github.com/neekrasov/kvdb/internal/database/compression"
+	"github.com/neekrasov/kvdb/internal/database/identity"
 	"github.com/neekrasov/kvdb/pkg/client"
 	"github.com/neekrasov/kvdb/pkg/logger"
 	"go.uber.org/zap"
@@ -102,6 +104,13 @@ func CLI(
 		res, err := client.Raw(ctx, query)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
+				return nil
+			}
+
+			if strings.Contains(err.Error(), identity.ErrExpiresSession.Error()) {
+				if _, err = rl.Write([]byte(database.WrapError(identity.ErrExpiresSession) + "\n")); err != nil {
+					return errors.Join(ErrWriteLineFailed, err)
+				}
 				return nil
 			}
 

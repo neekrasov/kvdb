@@ -14,13 +14,14 @@ import (
 
 type (
 	Config struct {
-		Engine        *EngineConfig      `yaml:"engine" json:"engine" xml:"engine"`
-		Network       *NetworkConfig     `yaml:"network" json:"network" xml:"network"`
-		Logging       *LoggingConfig     `yaml:"logging" json:"logging" xml:"logging"`
-		WAL           *WALConfig         `yaml:"wal" json:"wal" xml:"wal"`
-		Root          *RootConfig        `yaml:"root" json:"root" xml:"root"`
-		Replication   *ReplicationConfig `yaml:"replication" json:"replication" xml:"replication"`
-		CleanupConfig *CleanupConfig     `yaml:"cleanup" json:"cleanup" xml:"cleanup"`
+		Engine          *EngineConfig      `yaml:"engine" json:"engine" xml:"engine"`
+		Network         *NetworkConfig     `yaml:"network" json:"network" xml:"network"`
+		Logging         *LoggingConfig     `yaml:"logging" json:"logging" xml:"logging"`
+		WAL             *WALConfig         `yaml:"wal" json:"wal" xml:"wal"`
+		Root            *RootConfig        `yaml:"root" json:"root" xml:"root"`
+		Replication     *ReplicationConfig `yaml:"replication" json:"replication" xml:"replication"`
+		CleanupConfig   *CleanupConfig     `yaml:"cleanup" json:"cleanup" xml:"cleanup"`
+		PwdPolicyConfig *PwdPolicyConfig   `yaml:"pwd" json:"pwd" xml:"pwd"`
 
 		// -- default optional params
 		DefaultRoles      []RoleConfig      `yaml:"default_roles" json:"default_roles" xml:"default_roles"`
@@ -43,6 +44,10 @@ type (
 	CleanupConfig struct {
 		Period    time.Duration `yaml:"period" json:"period" xml:"period"`
 		BatchSize int           `yaml:"batch_size" json:"batch_size" xml:"batch_size"`
+	}
+
+	PwdPolicyConfig struct {
+		SessionLifeTime time.Duration `yaml:"session_lifetime" json:"session_lifetime" xml:"session_lifetime"`
 	}
 
 	UserConfig struct {

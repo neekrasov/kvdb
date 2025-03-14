@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database/compute"
@@ -466,7 +467,7 @@ func TestDatabase_Login(t *testing.T) {
 func TestDatabase_Logout(t *testing.T) {
 	t.Parallel()
 
-	mockSessionStorage := identity.NewSessionStorage()
+	mockSessionStorage := identity.NewSessionStorage(time.Hour)
 	db := &Database{sessions: mockSessionStorage}
 
 	ctx := context.Background()
