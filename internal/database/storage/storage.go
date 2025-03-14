@@ -167,13 +167,15 @@ func MakeKey(namespace, key string) string {
 }
 
 func (s *Storage) applyFunc(ctx context.Context, entries []wal.LogEntry) error {
+	var lastLSN int64
 	for _, entry := range entries {
+		lastLSN = max(lastLSN, entry.LSN)
+		ctx := ctxutil.InjectTxID(ctx, entry.LSN)
 		switch entry.Operation {
 		case compute.SetCommandID:
 			s.engine.Set(ctx, entry.Args[0], entry.Args[1], 0)
 		case compute.DelCommandID:
-			err := s.engine.Del(ctx, entry.Args[0])
-			if err != nil {
+			if err := s.engine.Del(ctx, entry.Args[0]); err != nil {
 				return fmt.Errorf("apply del (%s) failed: %w", entry.Args[0], err)
 			}
 		case compute.UnknownCommandID:
@@ -183,6 +185,7 @@ func (s *Storage) applyFunc(ctx context.Context, entries []wal.LogEntry) error {
 		}
 
 		logger.Debug("recovered log entry",
+			zap.Int64("lsn", entry.LSN),
 			zap.Int("operation", int(entry.Operation)),
 			zap.Strings("args", entry.Args),
 		)

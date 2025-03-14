@@ -72,7 +72,8 @@ func (m *Master) Start(ctx context.Context) {
 		}
 
 		response := MasterResponse{
-			Succeed: err == nil,
+			Succeed: err == nil || err == io.EOF,
+			HasNext: err == nil,
 			Data:    data,
 		}
 

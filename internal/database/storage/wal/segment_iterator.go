@@ -28,12 +28,13 @@ func NewSegmentIterator(storage SegmentStorage, compression compression.Compress
 // Next - retrieves the next segment's data, decompressing it if necessary.
 // Returns io.EOF if the segment is not found.
 func (si *SegmentIterator) Next(num int) ([]byte, error) {
+	nums, err := si.storage.List()
+	if err != nil {
+		return nil, err
+	}
+
 	seg, err := si.storage.Open(num)
 	if err != nil {
-		if errors.Is(err, ErrSegmentNotFound) {
-			return nil, io.EOF
-		}
-
 		return nil, fmt.Errorf("failed to open segment %d: %w", num, err)
 	}
 	defer seg.Close()
@@ -52,7 +53,10 @@ func (si *SegmentIterator) Next(num int) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to decompress segment %d: %w", num, err)
 		}
+	}
 
+	if num == nums[len(nums)-1] {
+		return data, io.EOF
 	}
 
 	return data, nil

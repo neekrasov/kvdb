@@ -77,7 +77,7 @@ func TestSlave_Sync(t *testing.T) {
 		{
 			name: "Success - Sync with master empty result",
 			prepareMocks: func(mockNetClient *replMocks.NetClient, mockWAL *replMocks.WAL) {
-				masterRep := NewMasterResponse(false, 1, []byte{})
+				masterRep := NewMasterResponse(false, false, []byte{})
 				buf := bytes.NewBuffer([]byte{})
 				err := masterRep.Encode(buf)
 				require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestSlave_Sync(t *testing.T) {
 		{
 			name: "Success - Sync with master nil data",
 			prepareMocks: func(mockNetClient *replMocks.NetClient, mockWAL *replMocks.WAL) {
-				masterRep := NewMasterResponse(true, 1, []byte{})
+				masterRep := NewMasterResponse(true, false, []byte{})
 				buf := bytes.NewBuffer([]byte{})
 				err := masterRep.Encode(buf)
 				require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestSlave_Sync(t *testing.T) {
 		{
 			name: "Success - Sync with master nil data",
 			prepareMocks: func(mockNetClient *replMocks.NetClient, mockWAL *replMocks.WAL) {
-				masterRep := NewMasterResponse(true, 1, []byte{})
+				masterRep := NewMasterResponse(true, false, []byte{})
 				buf := bytes.NewBuffer([]byte{})
 				err := masterRep.Encode(buf)
 				require.NoError(t, err)
@@ -117,6 +117,7 @@ func TestSlave_Sync(t *testing.T) {
 			name: "Success - Sync with master apply data",
 			prepareMocks: func(mockNetClient *replMocks.NetClient, mockWAL *replMocks.WAL) {
 				entry := wal.LogEntry{
+					LSN:       1,
 					Operation: compute.CommandID(1),
 					Args:      []string{"arg1", "arg2"},
 				}
@@ -125,7 +126,55 @@ func TestSlave_Sync(t *testing.T) {
 				err := entry.Encode(&buf)
 				require.NoError(t, err)
 
-				masterRep := NewMasterResponse(true, 1, buf.Bytes())
+				masterRep := NewMasterResponse(true, false, buf.Bytes())
+				var buf2 bytes.Buffer
+				err = masterRep.Encode(&buf2)
+				require.NoError(t, err)
+
+				mockNetClient.On("Send", mock.Anything, mock.Anything).
+					Return(buf2.Bytes(), nil).Once()
+				mockWAL.On("Flush", mock.Anything).Return(nil).Once()
+			},
+			expectError: false,
+		},
+		{
+			name: "Success - Sync with master apply data, no changes",
+			prepareMocks: func(mockNetClient *replMocks.NetClient, mockWAL *replMocks.WAL) {
+				entry := wal.LogEntry{
+					// LSN: 0
+					Operation: compute.CommandID(1),
+					Args:      []string{"arg1", "arg2"},
+				}
+
+				var buf bytes.Buffer
+				err := entry.Encode(&buf)
+				require.NoError(t, err)
+
+				response := NewMasterResponse(true, false, buf.Bytes())
+
+				var buf2 bytes.Buffer
+				err = response.Encode(&buf2)
+				require.NoError(t, err)
+
+				mockNetClient.On("Send", mock.Anything, mock.Anything).
+					Return(buf2.Bytes(), nil).Once()
+			},
+			expectError: false,
+		},
+		{
+			name: "Success - Sync with master apply data",
+			prepareMocks: func(mockNetClient *replMocks.NetClient, mockWAL *replMocks.WAL) {
+				entry := wal.LogEntry{
+					LSN:       1,
+					Operation: compute.CommandID(1),
+					Args:      []string{"arg1", "arg2"},
+				}
+
+				var buf bytes.Buffer
+				err := entry.Encode(&buf)
+				require.NoError(t, err)
+
+				masterRep := NewMasterResponse(true, false, buf.Bytes())
 				var buf2 bytes.Buffer
 				err = masterRep.Encode(&buf2)
 				require.NoError(t, err)
@@ -150,7 +199,7 @@ func TestSlave_Sync(t *testing.T) {
 		{
 			name: "Error - invalid master response",
 			prepareMocks: func(mockNetClient *replMocks.NetClient, mockWAL *replMocks.WAL) {
-				masterRep := NewMasterResponse(true, 1, []byte("invalid"))
+				masterRep := NewMasterResponse(true, false, []byte("invalid"))
 				buf := bytes.NewBuffer([]byte{})
 				err := masterRep.Encode(buf)
 				require.NoError(t, err)

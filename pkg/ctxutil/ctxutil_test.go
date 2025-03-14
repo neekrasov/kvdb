@@ -64,3 +64,14 @@ func TestContextChaining(t *testing.T) {
 	require.Equal(t, int64(67890), extractedTxID, "Expected TxID to be 67890, got %d", extractedTxID)
 	require.Equal(t, "xyz789", extractedSessionID, "Expected SessionID to be \"xyz789\", got %s", extractedSessionID)
 }
+
+func TestInjectAndExtractTTL(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	ctx = ctxutil.InjectTTL(ctx, "1s")
+
+	extractedTxID := ctxutil.ExtractTTL(ctx)
+	assert.Equal(t, "1s", extractedTxID, "Expected TxID to be %s, got %s", "1s", extractedTxID)
+}

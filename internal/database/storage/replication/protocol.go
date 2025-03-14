@@ -37,6 +37,7 @@ func (e *SlaveRequest) Decode(r io.Reader) error {
 // MasterResponse is a struct for response from master node
 type MasterResponse struct {
 	Succeed bool
+	HasNext bool
 	Data    []byte
 }
 
@@ -59,9 +60,9 @@ func (e *MasterResponse) Decode(r io.Reader) error {
 }
 
 // NewMasterResponse returns new master response
-func NewMasterResponse(succeed bool, segmentNum int, segmentData []byte) MasterResponse {
+func NewMasterResponse(succeed, hasNext bool, data []byte) MasterResponse {
 	return MasterResponse{
 		Succeed: succeed,
-		Data:    segmentData,
+		Data:    data,
 	}
 }

@@ -35,13 +35,15 @@ type WAL interface {
 
 // Slave - struct representing the slave server.
 type Slave struct {
-	client            NetClient
-	stream            Stream
-	walInstance       WAL
+	client      NetClient
+	stream      Stream
+	walInstance WAL
+
 	lastSegmentNum    int
-	syncInterval      time.Duration
 	syncRetryNum      int
+	syncInterval      time.Duration
 	syncRetryDuration time.Duration
+	lastLSN           int64
 }
 
 // NewSlave - constructor function that creates a new Slave instance.
@@ -145,6 +147,7 @@ func (s *Slave) sync(ctx context.Context) error {
 	}
 	logger.Debug("master response",
 		zap.Bool("succeed", response.Succeed),
+		zap.Bool("has_next", response.HasNext),
 		zap.Int("segment_num", s.lastSegmentNum),
 	)
 
@@ -152,9 +155,10 @@ func (s *Slave) sync(ctx context.Context) error {
 		if err := s.applySegment(response.Data); err != nil {
 			return fmt.Errorf("failed to upply segment data: %w", err)
 		}
-		logger.Debug("apply segment success",
-			zap.Int("segment_num", s.lastSegmentNum))
-		s.lastSegmentNum += 1
+
+		if response.HasNext {
+			s.lastSegmentNum += 1
+		}
 	}
 
 	return nil
@@ -167,6 +171,7 @@ func (s *Slave) applySegment(payload []byte) error {
 	}
 
 	var (
+		lastLSN      int64
 		logEntries   []wal.LogEntry
 		writeEntries []wal.WriteEntry
 	)
@@ -177,16 +182,27 @@ func (s *Slave) applySegment(payload []byte) error {
 			return fmt.Errorf("unable to parse log entry: %w", err)
 		}
 
-		logEntries = append(logEntries, request)
-		writeEntries = append(writeEntries, wal.NewWriteEntry(
-			request.LSN, request.Operation, request.Args,
-		))
+		if request.LSN > s.lastLSN {
+			logEntries = append(logEntries, request)
+			writeEntries = append(writeEntries, wal.NewWriteEntry(
+				request.LSN, request.Operation, request.Args,
+			))
+		}
+
+		lastLSN = max(lastLSN, request.LSN)
 	}
 
-	if err := s.walInstance.Flush(writeEntries); err != nil {
+	if len(writeEntries) == 0 {
+		logger.Debug("no master changes", zap.Int("segment_num", s.lastSegmentNum))
+		return nil
+	} else if err := s.walInstance.Flush(writeEntries); err != nil {
 		return fmt.Errorf("flush segment to wal failed: %w", err)
 	}
 
+	logger.Debug("apply segment success",
+		zap.Int("segment_num", s.lastSegmentNum))
+
+	s.lastLSN = lastLSN
 	s.stream <- logEntries
 
 	return nil

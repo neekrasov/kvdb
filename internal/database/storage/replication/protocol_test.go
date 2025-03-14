@@ -25,7 +25,7 @@ func TestSlaveRequest_EncodeDecode(t *testing.T) {
 }
 
 func TestMasterResponse_EncodeDecode(t *testing.T) {
-	resp := replication.NewMasterResponse(true, 42, []byte("test data"))
+	resp := replication.NewMasterResponse(true, false, []byte("test data"))
 	var buf bytes.Buffer
 
 	err := resp.Encode(&buf)
@@ -55,7 +55,7 @@ func TestSlaveRequestGobEncoding(t *testing.T) {
 }
 
 func TestMasterResponseGobEncoding(t *testing.T) {
-	resp := replication.NewMasterResponse(false, 20, []byte("hello world"))
+	resp := replication.NewMasterResponse(false, false, []byte("hello world"))
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	dec := gob.NewDecoder(&buf)
