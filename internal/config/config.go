@@ -14,12 +14,13 @@ import (
 
 type (
 	Config struct {
-		Engine      *EngineConfig      `yaml:"engine" json:"engine" xml:"engine"`
-		Network     *NetworkConfig     `yaml:"network" json:"network" xml:"network"`
-		Logging     *LoggingConfig     `yaml:"logging" json:"logging" xml:"logging"`
-		WAL         *WALConfig         `yaml:"wal" json:"wal" xml:"wal"`
-		Root        *RootConfig        `yaml:"root" json:"root" xml:"root"`
-		Replication *ReplicationConfig `yaml:"replication" json:"replication" xml:"replication"`
+		Engine        *EngineConfig      `yaml:"engine" json:"engine" xml:"engine"`
+		Network       *NetworkConfig     `yaml:"network" json:"network" xml:"network"`
+		Logging       *LoggingConfig     `yaml:"logging" json:"logging" xml:"logging"`
+		WAL           *WALConfig         `yaml:"wal" json:"wal" xml:"wal"`
+		Root          *RootConfig        `yaml:"root" json:"root" xml:"root"`
+		Replication   *ReplicationConfig `yaml:"replication" json:"replication" xml:"replication"`
+		CleanupConfig *CleanupConfig     `yaml:"cleanup" json:"cleanup" xml:"cleanup"`
 
 		// -- default optional params
 		DefaultRoles      []RoleConfig      `yaml:"default_roles" json:"default_roles" xml:"default_roles"`
@@ -37,6 +38,11 @@ type (
 
 	NamespaceConfig struct {
 		Name string `yaml:"name" json:"name" xml:"name"`
+	}
+
+	CleanupConfig struct {
+		Period    time.Duration `yaml:"period" json:"period" xml:"period"`
+		BatchSize int           `yaml:"batch_size" json:"batch_size" xml:"batch_size"`
 	}
 
 	UserConfig struct {

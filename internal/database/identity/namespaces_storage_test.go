@@ -14,6 +14,8 @@ import (
 )
 
 func TestNamespaceStorage(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	mockStorage := mocks.NewStorage(t)

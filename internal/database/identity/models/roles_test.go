@@ -9,6 +9,8 @@ import (
 )
 
 func TestModels(t *testing.T) {
+	t.Parallel()
+
 	t.Run("NewRole - valid perms", func(t *testing.T) {
 		role, err := models.NewRole("admin", "rwd", "")
 		assert.NoError(t, err)

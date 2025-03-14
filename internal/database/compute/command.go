@@ -14,9 +14,9 @@ const (
 Available commands for admins:
 
   Operation commands:
-    get <key>            - Retrieve the value associated with a key.
-    set <key> <value>    - Store a value for a given key.
-    del <key>            - Remove a key and its value from the storage.
+    get <key> - Retrieve the value associated with a key.
+    set <key> <value> [ttl] - Store a value for a given key.
+    del <key> - Remove a key and its value from the storage.
 
   User commands:
 	login <username> <password> - Authenticate a user.
@@ -48,9 +48,9 @@ Available commands for admins:
 Available commands for users:
 
   Operation commands:
-    get <key>            - Retrieve the value associated with a key.
-    set <key> <value>    - Store a value for a given key.
-    del <key>            - Remove a key and its value from the storage.
+    get <key> - Retrieve the value associated with a key.
+    set <key> <value> [ttl] - Store a value for a given key.
+    del <key> - Remove a key and its value from the storage.
 
   User commands:
     login <username> <password> - Authenticate a user.
@@ -58,7 +58,7 @@ Available commands for users:
 
   Namespaces commands:
     ns - List all namespaces.
-    set_ns <namespace> - Set the current namespace for the user.
+    set ns <namespace> - Set the current namespace for the user.
 
   Help command:
     help - Display this help message.
@@ -173,10 +173,14 @@ func (cmd *Command) Validate() error {
 		if len(cmd.Args) != 1 {
 			return fmt.Errorf("%w: %s command requires exactly 1 argument", ErrInvalidCommand, cmd.Type)
 		}
-	case CommandAUTH, CommandASSIGNROLE, CommandSET,
+	case CommandAUTH, CommandASSIGNROLE,
 		CommandCREATEUSER, CommandDIVESTROLE:
 		if len(cmd.Args) != 2 {
 			return fmt.Errorf("%w: %s command requires exactly 2 arguments", ErrInvalidCommand, cmd.Type)
+		}
+	case CommandSET: // (key, value, [ttl])
+		if len(cmd.Args) < 2 || len(cmd.Args) > 3 {
+			return fmt.Errorf("%w: %s command requires 2 or 3 arguments", ErrInvalidCommand, cmd.Type)
 		}
 	case CommandCREATEROLE:
 		if len(cmd.Args) != 3 {

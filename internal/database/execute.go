@@ -118,6 +118,10 @@ func (db *Database) set(ctx context.Context, user *models.User, args []string) s
 	}
 
 	key := storage.MakeKey(user.ActiveRole.Namespace, args[0])
+	if len(args) == 3 {
+		ctx = ctxutil.InjectTTL(ctx, args[2])
+	}
+
 	if err := db.storage.Set(ctx, key, args[1]); err != nil {
 		return WrapError(err)
 	}

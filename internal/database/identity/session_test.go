@@ -9,6 +9,8 @@ import (
 )
 
 func TestSessionStorage(t *testing.T) {
+	t.Parallel()
+
 	sessStorage := NewSessionStorage()
 	t.Run("Create session", func(t *testing.T) {
 		err := sessStorage.Create("1", &models.User{})

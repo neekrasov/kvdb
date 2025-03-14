@@ -464,6 +464,8 @@ func TestDatabase_Login(t *testing.T) {
 }
 
 func TestDatabase_Logout(t *testing.T) {
+	t.Parallel()
+
 	mockSessionStorage := identity.NewSessionStorage()
 	db := &Database{sessions: mockSessionStorage}
 

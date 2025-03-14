@@ -14,6 +14,8 @@ import (
 )
 
 func TestRolesStorage(t *testing.T) {
+	t.Parallel()
+
 	mockStorage := mocks.NewStorage(t)
 	rolesStorage := identity.NewRolesStorage(mockStorage)
 

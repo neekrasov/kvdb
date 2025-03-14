@@ -12,6 +12,8 @@ import (
 )
 
 func TestLogEntryEncodeDecode(t *testing.T) {
+	t.Parallel()
+
 	entry := wal.LogEntry{
 		Operation: compute.CommandID(1),
 		Args:      []string{"arg1", "arg2"},
@@ -30,6 +32,8 @@ func TestLogEntryEncodeDecode(t *testing.T) {
 }
 
 func TestWriteEntry(t *testing.T) {
+	t.Parallel()
+
 	op := compute.CommandID(1)
 	args := []string{"arg1", "arg2"}
 	entry := wal.NewWriteEntry(0, op, args)

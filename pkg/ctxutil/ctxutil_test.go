@@ -10,6 +10,8 @@ import (
 )
 
 func TestInjectAndExtractTxID(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	txID := int64(12345)
@@ -20,12 +22,16 @@ func TestInjectAndExtractTxID(t *testing.T) {
 }
 
 func TestExtractTxID_NotFound(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	extractedTxID := ctxutil.ExtractTxID(ctx)
 	assert.Equal(t, int64(0), extractedTxID, "Expected TxID to be 0, got %d", extractedTxID)
 }
 
 func TestInjectAndExtractSessionID(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	sessionID := "abc123"
@@ -37,6 +43,8 @@ func TestInjectAndExtractSessionID(t *testing.T) {
 }
 
 func TestExtractSessionID_NotFound(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	extractedSessionID := ctxutil.ExtractSessionID(ctx)
@@ -44,6 +52,8 @@ func TestExtractSessionID_NotFound(t *testing.T) {
 }
 
 func TestContextChaining(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	ctx = ctxutil.InjectTxID(ctx, 67890)
 	ctx = ctxutil.InjectSessionID(ctx, "xyz789")

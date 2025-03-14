@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/storage/replication"
@@ -22,10 +23,11 @@ var (
 type (
 	// Engine - key-value storage operations.
 	Engine interface {
-		Set(ctx context.Context, key, value string)
+		Set(ctx context.Context, key, value string, ttl int64)
 		Get(ctx context.Context, key string) (string, bool)
 		Del(ctx context.Context, key string) error
 		Watch(ctx context.Context, key string) pkgsync.FutureString
+		ForEachExpired(action func(key string))
 	}
 
 	// WAL - Write-Ahead Log interface for data persistence.
@@ -33,6 +35,7 @@ type (
 		Set(ctx context.Context, key, value string) error
 		Del(ctx context.Context, key string) error
 		Recover(applyFunc func(ctx context.Context, entry []wal.LogEntry) error) (int64, error)
+		Flush(batch []wal.WriteEntry) error
 	}
 
 	Replica interface {
@@ -48,6 +51,9 @@ type Storage struct {
 	engine  Engine
 	wal     WAL
 	gen     *pkgsync.IDGenerator
+
+	cleanupPeriod    time.Duration
+	cleanupBatchSize int
 }
 
 // NewStorage - initializes and returns a new Storage instance with the provided storage engine.
@@ -82,6 +88,12 @@ func NewStorage(
 	}
 
 	s.gen = pkgsync.NewIDGenerator(lastLSN)
+
+	if s.cleanupPeriod != 0 &&
+		(s.replica == nil || s.replica.IsMaster()) {
+		go s.startCleanupExpiresKeys(ctx)
+	}
+
 	return s, nil
 }
 
@@ -91,15 +103,23 @@ func (s *Storage) Set(ctx context.Context, key, value string) error {
 		return ErrorMutableOp
 	}
 
-	txID := s.gen.Generate()
-	ctx = ctxutil.InjectTxID(ctx, txID)
+	var ttl int64
+	if ttlStr := ctxutil.ExtractTTL(ctx); ttlStr != "" {
+		duration, err := time.ParseDuration(ttlStr)
+		if err != nil {
+			return fmt.Errorf("invalid format fo ttl: %w", err)
+		}
 
+		ttl = time.Now().Unix() + (duration.Nanoseconds() / 1e9)
+	}
+
+	ctx = ctxutil.InjectTxID(ctx, s.gen.Generate())
 	err := s.wal.Set(ctx, key, value)
 	if err != nil {
 		return err
 	}
 
-	s.engine.Set(ctx, key, value)
+	s.engine.Set(ctx, key, value, ttl)
 	return nil
 }
 
@@ -150,7 +170,7 @@ func (s *Storage) applyFunc(ctx context.Context, entries []wal.LogEntry) error {
 	for _, entry := range entries {
 		switch entry.Operation {
 		case compute.SetCommandID:
-			s.engine.Set(ctx, entry.Args[0], entry.Args[1])
+			s.engine.Set(ctx, entry.Args[0], entry.Args[1], 0)
 		case compute.DelCommandID:
 			err := s.engine.Del(ctx, entry.Args[0])
 			if err != nil {
@@ -169,4 +189,44 @@ func (s *Storage) applyFunc(ctx context.Context, entries []wal.LogEntry) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) startCleanupExpiresKeys(ctx context.Context) {
+	ticker := time.NewTicker(s.cleanupPeriod)
+	defer ticker.Stop()
+
+	entries := make([]wal.WriteEntry, 0, s.cleanupBatchSize)
+	for {
+		select {
+		case <-ticker.C:
+			logger.Debug("start removing expires keys")
+
+			s.engine.ForEachExpired(func(key string) {
+				entries = append(entries, wal.NewWriteEntry(
+					s.gen.Generate(), compute.DelCommandID, []string{key},
+				))
+				if len(entries) == s.cleanupBatchSize {
+					s.cleanupKeys(entries)
+					entries = entries[:0]
+				}
+			})
+
+			if len(entries) > 0 {
+				s.cleanupKeys(entries)
+				entries = entries[:0]
+			}
+		case <-ctx.Done():
+			logger.Debug("cleanup expired key stopped", zap.Stringer("time", time.Now().UTC()))
+			return
+		}
+	}
+}
+
+func (s *Storage) cleanupKeys(entries []wal.WriteEntry) {
+	s.wal.Flush(entries)
+	for _, entry := range entries {
+		key := entry.Log().Args[0]
+		s.engine.Del(context.Background(), key)
+		logger.Debug("removed expired key (background)", zap.String("key", key))
+	}
 }

@@ -70,6 +70,52 @@ func (_c *WAL_Del_Call) RunAndReturn(run func(context.Context, string) error) *W
 	return _c
 }
 
+// Flush provides a mock function with given fields: batch
+func (_m *WAL) Flush(batch []wal.WriteEntry) error {
+	ret := _m.Called(batch)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Flush")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]wal.WriteEntry) error); ok {
+		r0 = rf(batch)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// WAL_Flush_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Flush'
+type WAL_Flush_Call struct {
+	*mock.Call
+}
+
+// Flush is a helper method to define mock.On call
+//   - batch []wal.WriteEntry
+func (_e *WAL_Expecter) Flush(batch interface{}) *WAL_Flush_Call {
+	return &WAL_Flush_Call{Call: _e.mock.On("Flush", batch)}
+}
+
+func (_c *WAL_Flush_Call) Run(run func(batch []wal.WriteEntry)) *WAL_Flush_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]wal.WriteEntry))
+	})
+	return _c
+}
+
+func (_c *WAL_Flush_Call) Return(_a0 error) *WAL_Flush_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *WAL_Flush_Call) RunAndReturn(run func([]wal.WriteEntry) error) *WAL_Flush_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Recover provides a mock function with given fields: applyFunc
 func (_m *WAL) Recover(applyFunc func(context.Context, []wal.LogEntry) error) (int64, error) {
 	ret := _m.Called(applyFunc)

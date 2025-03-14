@@ -70,6 +70,39 @@ func (_c *Engine_Del_Call) RunAndReturn(run func(context.Context, string) error)
 	return _c
 }
 
+// ForEachExpired provides a mock function with given fields: action
+func (_m *Engine) ForEachExpired(action func(string)) {
+	_m.Called(action)
+}
+
+// Engine_ForEachExpired_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ForEachExpired'
+type Engine_ForEachExpired_Call struct {
+	*mock.Call
+}
+
+// ForEachExpired is a helper method to define mock.On call
+//   - action func(string)
+func (_e *Engine_Expecter) ForEachExpired(action interface{}) *Engine_ForEachExpired_Call {
+	return &Engine_ForEachExpired_Call{Call: _e.mock.On("ForEachExpired", action)}
+}
+
+func (_c *Engine_ForEachExpired_Call) Run(run func(action func(string))) *Engine_ForEachExpired_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(func(string)))
+	})
+	return _c
+}
+
+func (_c *Engine_ForEachExpired_Call) Return() *Engine_ForEachExpired_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Engine_ForEachExpired_Call) RunAndReturn(run func(func(string))) *Engine_ForEachExpired_Call {
+	_c.Run(run)
+	return _c
+}
+
 // Get provides a mock function with given fields: ctx, key
 func (_m *Engine) Get(ctx context.Context, key string) (string, bool) {
 	ret := _m.Called(ctx, key)
@@ -127,9 +160,9 @@ func (_c *Engine_Get_Call) RunAndReturn(run func(context.Context, string) (strin
 	return _c
 }
 
-// Set provides a mock function with given fields: ctx, key, value
-func (_m *Engine) Set(ctx context.Context, key string, value string) {
-	_m.Called(ctx, key, value)
+// Set provides a mock function with given fields: ctx, key, value, ttl
+func (_m *Engine) Set(ctx context.Context, key string, value string, ttl int64) {
+	_m.Called(ctx, key, value, ttl)
 }
 
 // Engine_Set_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Set'
@@ -141,13 +174,14 @@ type Engine_Set_Call struct {
 //   - ctx context.Context
 //   - key string
 //   - value string
-func (_e *Engine_Expecter) Set(ctx interface{}, key interface{}, value interface{}) *Engine_Set_Call {
-	return &Engine_Set_Call{Call: _e.mock.On("Set", ctx, key, value)}
+//   - ttl int64
+func (_e *Engine_Expecter) Set(ctx interface{}, key interface{}, value interface{}, ttl interface{}) *Engine_Set_Call {
+	return &Engine_Set_Call{Call: _e.mock.On("Set", ctx, key, value, ttl)}
 }
 
-func (_c *Engine_Set_Call) Run(run func(ctx context.Context, key string, value string)) *Engine_Set_Call {
+func (_c *Engine_Set_Call) Run(run func(ctx context.Context, key string, value string, ttl int64)) *Engine_Set_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(int64))
 	})
 	return _c
 }
@@ -157,7 +191,7 @@ func (_c *Engine_Set_Call) Return() *Engine_Set_Call {
 	return _c
 }
 
-func (_c *Engine_Set_Call) RunAndReturn(run func(context.Context, string, string)) *Engine_Set_Call {
+func (_c *Engine_Set_Call) RunAndReturn(run func(context.Context, string, string, int64)) *Engine_Set_Call {
 	_c.Run(run)
 	return _c
 }

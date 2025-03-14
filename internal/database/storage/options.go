@@ -1,6 +1,10 @@
 package storage
 
-import "github.com/neekrasov/kvdb/internal/database/storage/replication"
+import (
+	"time"
+
+	"github.com/neekrasov/kvdb/internal/database/storage/replication"
+)
 
 // StorageOpt - options for configuring Storage.
 type StorageOpt func(*Storage)
@@ -23,5 +27,19 @@ func WithReplicaOpt(r Replica) StorageOpt {
 func WithReplicaStreamOpt(rs replication.Stream) StorageOpt {
 	return func(s *Storage) {
 		s.stream = rs
+	}
+}
+
+// WithPartitionNum - configures Engine with a cleanup period.
+func WithCleanupPeriod(cleanupPeriod time.Duration) StorageOpt {
+	return func(s *Storage) {
+		s.cleanupPeriod = cleanupPeriod
+	}
+}
+
+// WithPartitionNum - configures Engine with a cleanup period.
+func WithCleanupBatchSize(batchSize int) StorageOpt {
+	return func(s *Storage) {
+		s.cleanupBatchSize = batchSize
 	}
 }

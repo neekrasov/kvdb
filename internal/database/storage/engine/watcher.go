@@ -5,24 +5,27 @@ import (
 	"sync"
 )
 
-type Watcher struct {
+// watcher - a structure representing a watcher for value changes.
+type watcher struct {
 	mu    *sync.Mutex
 	cond  *sync.Cond
 	value string
 }
 
-func NewWatcher(value string) *Watcher {
+// newWatcher - creates a new instance of watcher with the specified initial value.
+func newWatcher(value string) *watcher {
 	mu := sync.Mutex{}
 	cond := sync.NewCond(&mu)
 
-	return &Watcher{
+	return &watcher{
 		mu:    &mu,
 		cond:  cond,
 		value: value,
 	}
 }
 
-func (w *Watcher) Set(value string) {
+// set - updates the value and notifies all waiting watchers.
+func (w *watcher) set(value string) {
 	w.mu.Lock()
 	w.value = value
 	w.mu.Unlock()
@@ -30,7 +33,8 @@ func (w *Watcher) Set(value string) {
 	w.cond.Broadcast()
 }
 
-func (w *Watcher) Watch(ctx context.Context) string {
+// watch - waits for a value change and returns the new value when it changes or when the context is canceled.
+func (w *watcher) watch(ctx context.Context) string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

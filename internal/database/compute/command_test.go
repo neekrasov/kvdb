@@ -28,7 +28,7 @@ func TestNewCommand(t *testing.T) {
 		{"Invalid SET (no args)", compute.CommandSET, []string{}, true},
 		{"Invalid SET (only key)", compute.CommandSET, []string{"key1"}, true},
 		{"Invalid CREATE ROLE (only key)", compute.CommandCREATEROLE, []string{"key1", "key2"}, true},
-		{"Invalid SET (too many args)", compute.CommandSET, []string{"key1", "value1", "extra"}, true},
+		{"Invalid SET (too many args)", compute.CommandSET, []string{"key1", "value1", "1s", "extra"}, true},
 		{"Invalid DEL (no args)", compute.CommandDEL, []string{}, true},
 		{"Invalid DEL (too many args)", compute.CommandDEL, []string{"key1", "extra"}, true},
 		{"Invalid compute type", "UNKNOWN", []string{"key1"}, true},

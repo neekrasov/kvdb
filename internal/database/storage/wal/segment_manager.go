@@ -12,11 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// defaultMaxSegmentSize - is 4KB.
-const (
-	defaultMaxSegmentSize = 4 << 20
-)
-
 type (
 	// SegmentStorage - interface for managing storage segments.
 	SegmentStorage interface {
@@ -72,10 +67,6 @@ func NewFileSegmentManager(storage SegmentStorage, opts ...FileSegmentManagerOpt
 
 	for _, option := range opts {
 		option(fsm)
-	}
-
-	if fsm.maxSegmentSize == 0 {
-		fsm.maxSegmentSize = defaultMaxSegmentSize
 	}
 
 	if len(segments) == 0 {

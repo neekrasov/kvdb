@@ -12,12 +12,14 @@ import (
 )
 
 func TestInMemoryEngine(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	logger.MockLogger()
 
 	t.Run("Set and Get", func(t *testing.T) {
 		e := engine.New()
-		e.Set(ctx, "foo", "bar")
+		e.Set(ctx, "foo", "bar", 0)
 		value, exists := e.Get(ctx, "foo")
 		require.True(t, exists)
 		assert.Equal(t, "bar", value)
@@ -32,7 +34,7 @@ func TestInMemoryEngine(t *testing.T) {
 
 	t.Run("Delete existing key", func(t *testing.T) {
 		e := engine.New(engine.WithPartitionNum(1))
-		e.Set(ctx, "foo", "bar")
+		e.Set(ctx, "foo", "bar", 0)
 		err := e.Del(ctx, "foo")
 		require.NoError(t, err)
 		value, exists := e.Get(ctx, "foo")
@@ -52,7 +54,7 @@ func TestInMemoryEngine(t *testing.T) {
 		future := e.Watch(ctx, key)
 		time.Sleep(time.Millisecond)
 		go func() {
-			e.Set(ctx, key, value)
+			e.Set(ctx, key, value, 0)
 		}()
 
 		actual := future.Get()
@@ -67,7 +69,7 @@ func TestInMemoryEngine(t *testing.T) {
 		future2 := e.Watch(ctx, key)
 		time.Sleep(time.Millisecond)
 		go func() {
-			e.Set(ctx, key, value)
+			e.Set(ctx, key, value, 0)
 		}()
 
 		actual1 := future1.Get()
@@ -80,7 +82,7 @@ func TestInMemoryEngine(t *testing.T) {
 	t.Run("Watch cancel", func(t *testing.T) {
 		e := engine.New()
 		key, value := "test_key", "test_value"
-		e.Set(ctx, key, value)
+		e.Set(ctx, key, value, 0)
 
 		ctx, cancel := context.WithCancel(ctx)
 		future := e.Watch(ctx, key)

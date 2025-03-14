@@ -21,6 +21,8 @@ func NewBufferCloser() *BufferCloser {
 }
 
 func TestNewSegment(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBufferCloser()
 	segment := segment.NewSegment(1, 100, true, buf)
 
@@ -30,6 +32,8 @@ func TestNewSegment(t *testing.T) {
 }
 
 func TestSegment_Write_Success(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBufferCloser()
 	segment := segment.NewSegment(1, 100, true, buf)
 
@@ -43,6 +47,8 @@ func TestSegment_Write_Success(t *testing.T) {
 }
 
 func TestSegment_Read_Success(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBufferCloser()
 	buf.WriteString("test data")
 	segment := segment.NewSegment(1, 100, true, buf)
@@ -56,6 +62,8 @@ func TestSegment_Read_Success(t *testing.T) {
 }
 
 func TestSegment_Read_EOF(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBufferCloser()
 	segment := segment.NewSegment(1, 100, true, buf)
 
@@ -67,6 +75,8 @@ func TestSegment_Read_EOF(t *testing.T) {
 }
 
 func TestSegment_Close(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBufferCloser()
 	segment := segment.NewSegment(1, 100, true, buf)
 
@@ -76,6 +86,8 @@ func TestSegment_Close(t *testing.T) {
 }
 
 func TestSegment_Size(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBufferCloser()
 	segment := segment.NewSegment(1, 100, true, buf)
 

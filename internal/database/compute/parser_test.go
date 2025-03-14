@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParse_TableDriven(t *testing.T) {
+func TestParse(t *testing.T) {
 	t.Parallel()
 	logger.MockLogger()
 
@@ -34,7 +34,7 @@ func TestParse_TableDriven(t *testing.T) {
 				Type: CommandSET,
 				Args: []string{},
 			},
-			expectedErr: fmt.Errorf("%w: %s command requires exactly 2 arguments", ErrInvalidCommand, CommandSET),
+			expectedErr: fmt.Errorf("%w: %s command requires 2 or 3 arguments", ErrInvalidCommand, CommandSET),
 		},
 		{
 			name:        "Empty Query",
@@ -56,6 +56,8 @@ func TestParse_TableDriven(t *testing.T) {
 	parser := NewParser(initCommandTrie())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd, err := parser.Parse(tt.query)
 
 			if tt.expectedErr != nil {

@@ -73,14 +73,28 @@ func (a *Application) Start(ctx context.Context) error {
 	if master != nil {
 		options = append(options, storage.WithReplicaOpt(master))
 	} else if slave != nil {
-		options = append(options, storage.WithReplicaOpt(slave))
-		options = append(options, storage.WithReplicaStreamOpt(slave.Stream()))
+		options = append(options,
+			storage.WithReplicaOpt(slave),
+			storage.WithReplicaStreamOpt(slave.Stream()),
+		)
+	}
+
+	if cfg := a.cfg.CleanupConfig; cfg != nil {
+		options = append(options,
+			storage.WithCleanupPeriod(cfg.Period),
+			storage.WithCleanupBatchSize(cfg.BatchSize),
+		)
+		logger.Debug("init background cleanup",
+			zap.Stringer("period", a.cfg.CleanupConfig.Period),
+			zap.Int("batch_size", a.cfg.CleanupConfig.BatchSize),
+		)
 	}
 
 	dstorage, err := storage.NewStorage(ctx, engine, options...)
 	if err != nil {
 		return fmt.Errorf("initialize storage failed: %w", err)
 	}
+
 	namespaceStorage, err := initNamespacesStorage(ctx, dstorage, a.cfg)
 	if err != nil {
 		return fmt.Errorf("initialize default namespaces failed: %w", err)

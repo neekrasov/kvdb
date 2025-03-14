@@ -121,6 +121,8 @@ func TestMaster_Start(t *testing.T) {
 }
 
 func TestMaster_IsMaster(t *testing.T) {
+	t.Parallel()
+
 	master := &replication.Master{}
 	assert.True(t, master.IsMaster())
 }

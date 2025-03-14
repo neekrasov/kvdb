@@ -13,7 +13,9 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/filesystem"
 	"github.com/neekrasov/kvdb/internal/database/storage/wal/segment"
 	"github.com/neekrasov/kvdb/internal/delivery/tcp"
+	"github.com/neekrasov/kvdb/pkg/logger"
 	"github.com/neekrasov/kvdb/pkg/sizeutil"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,7 +26,7 @@ const (
 const (
 	defaultReplicationSyncInterval = time.Second
 	defaultMaxReplicasNumber       = 5
-	defaultMaxSegmentSize          = 4 << 20
+	defaultMaxSegmentSize          = 4 << 10 // 4KB
 )
 
 func initReplica(
@@ -33,6 +35,7 @@ func initReplica(
 	replicationCfg *config.ReplicationConfig,
 ) (storage.Replica, error) {
 	if replicationCfg == nil {
+		logger.Warn("empty replication config")
 		return nil, nil
 	} else if walCfg == nil || walInstance == nil {
 		return nil, errors.New("replication without wal")
@@ -70,7 +73,7 @@ func initReplica(
 		return nil, err
 	}
 
-	idleTimeout := syncInterval * 3
+	idleTimeout := syncInterval * 3 // TODO: move to config?
 	if replicationCfg.ReplicaType == masterType {
 		maxReplicasNumber := defaultMaxReplicasNumber
 		if replicationCfg.MaxReplicasNumber != 0 {
@@ -95,6 +98,13 @@ func initReplica(
 			}
 		}
 
+		logger.Debug("init master replica",
+			zap.Int("max_replicas_number", maxReplicasNumber),
+			zap.Int("max_segment_size", maxMessageSize),
+			zap.String("master_address", masterAddress),
+			zap.Stringer("idle_timeout", idleTimeout),
+		)
+
 		iterator := wal.NewSegmentIterator(segmentStorage, compressor)
 		return replication.NewMaster(server, iterator), nil
 	}
@@ -106,6 +116,12 @@ func initReplica(
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Debug("init slave replica",
+		zap.Int("max_segment_size", maxMessageSize),
+		zap.Stringer("sync_interval", syncInterval),
+		zap.Stringer("idle_timeout", idleTimeout),
+	)
 
 	return replication.NewSlave(client, segmentStorage, walInstance, syncInterval, 10)
 }

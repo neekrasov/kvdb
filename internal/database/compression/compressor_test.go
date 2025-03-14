@@ -10,6 +10,8 @@ import (
 
 // TestCompressors - табличный тест для всех компрессоров
 func TestCompressors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		compression compression.Compressor
@@ -44,6 +46,8 @@ func TestCompressors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			compressed, err := tt.compression.Compress(tt.data)
 			require.NoError(t, err, "Compress should not return an error")
 			assert.NotEqual(t, tt.data, compressed, "Compressed data should not match original data")

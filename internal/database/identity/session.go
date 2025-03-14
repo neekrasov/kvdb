@@ -38,7 +38,7 @@ func (s *SessionStorage) Create(id models.SessionID, user *models.User) error {
 	now := time.Now()
 	s.sessions[id] = models.Session{
 		User:      user,
-		ExpiresAt: now.Add(24 * time.Hour),
+		ExpiresAt: now.Add(24 * time.Hour), // TODO: add to config file
 		CreatedAt: now,
 	}
 
