@@ -11,7 +11,7 @@ func NewTrieNode() *TrieNode {
 	}
 }
 
-func (t *TrieNode) Insert(command []string, cmdType CommandType) {
+func (t *TrieNode) Insert(cmdType CommandType, command ...string) {
 	current := t
 	for _, part := range command {
 		if _, exists := current.children[part]; !exists {

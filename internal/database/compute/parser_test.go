@@ -74,22 +74,7 @@ func TestParse(t *testing.T) {
 
 func initCommandTrie() *TrieNode {
 	root := NewTrieNode()
-	root.Insert([]string{"create", "role"}, CommandCREATEROLE)
-	root.Insert([]string{"create", "user"}, CommandCREATEUSER)
-	root.Insert([]string{"assign", "role"}, CommandASSIGNROLE)
-	root.Insert([]string{"delete", "role"}, CommandDELETEROLE)
-	root.Insert([]string{"create", "ns"}, CommandCREATENAMESPACE)
-	root.Insert([]string{"delete", "ns"}, CommandDELETENAMESPACE)
-	root.Insert([]string{"set", "ns"}, CommandSETNS)
-	root.Insert([]string{"get"}, CommandGET)
-	root.Insert([]string{"set"}, CommandSET)
-	root.Insert([]string{"del"}, CommandDEL)
-	root.Insert([]string{"login"}, CommandAUTH)
-	root.Insert([]string{"users"}, CommandUSERS)
-	root.Insert([]string{"me"}, CommandME)
-	root.Insert([]string{"roles"}, CommandROLES)
-	root.Insert([]string{"ns"}, CommandNAMESPACES)
-	root.Insert([]string{"help"}, CommandHELP)
+	root.Insert(CommandSET, "set")
 
 	return root
 }

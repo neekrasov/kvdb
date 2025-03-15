@@ -42,14 +42,15 @@ type (
 
 // Config - holds the configuration settings for the KVDB client.
 type Config struct {
-	Username             string                      `json:"username"`
-	Password             string                      `json:"password"`
-	Address              string                      `json:"address"`
-	MaxMessageSize       string                      `json:"maxMessageSize"`
-	MaxReconnectAttempts int                         `json:"maxReconnectAttempts"`
-	IdleTimeout          time.Duration               `json:"idleTimeout"`
-	ReconnectBaseDelay   time.Duration               `json:"reconnectBaseDelay"`
-	Compression          compression.CompressionType `json:"compression"`
+	Username             string        `json:"username"`
+	Password             string        `json:"password"`
+	Address              string        `json:"address"`
+	MaxMessageSize       string        `json:"maxMessageSize"`
+	Compression          string        `json:"compression"`
+	MaxReconnectAttempts int           `json:"maxReconnectAttempts"`
+	IdleTimeout          time.Duration `json:"idleTimeout"`
+	ReconnectBaseDelay   time.Duration `json:"reconnectBaseDelay"`
+	HeartbeatInterval    time.Duration `json:"heartBeatInterval"`
 }
 
 // Client - represents a client for interacting with a KVDB server.
@@ -91,7 +92,7 @@ func New(
 		client.compressor = compressor
 	}
 
-	if err := client.connect(); err != nil {
+	if err := client.connect(ctx); err != nil {
 		return nil, fmt.Errorf("initial connection failed: %w", err)
 	}
 
@@ -103,7 +104,7 @@ func New(
 }
 
 // connect - establishes a new connection to the server.
-func (k *Client) connect() error {
+func (k *Client) connect(ctx context.Context) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
@@ -129,6 +130,8 @@ func (k *Client) connect() error {
 		return err
 	}
 	k.client = client
+
+	k.sendHeartBeats(ctx)
 
 	return nil
 }
@@ -192,6 +195,34 @@ func (k *Client) sendWithRetries(ctx context.Context, request []byte) (string, e
 	}
 }
 
+func (k *Client) sendHeartBeats(ctx context.Context) {
+	go func() {
+		if k.cfg.HeartbeatInterval == 0 {
+			return
+		}
+
+		ticker := time.NewTicker(k.cfg.HeartbeatInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				res, err := k.client.Send(ctx, []byte(compute.CommandHEARTBEAT.Make()))
+				if err != nil {
+					return
+				}
+
+				if database.IsError(string(res)) {
+					fmt.Println(string(res))
+					return
+				}
+			}
+		}
+	}()
+}
+
 func (k *Client) send(ctx context.Context, query string) (string, error) {
 	res, err := k.sendWithRetries(ctx, []byte(query))
 	if err != nil {
@@ -225,7 +256,7 @@ func (k *Client) reconnect(ctx context.Context, attempt int) error {
 		return ctx.Err()
 	}
 
-	if err := k.connect(); err != nil {
+	if err := k.connect(ctx); err != nil {
 		return fmt.Errorf("connect failed: %w", err)
 	}
 

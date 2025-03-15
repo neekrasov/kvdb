@@ -485,3 +485,8 @@ func (db *Database) watch(ctx context.Context, user *models.User, args []string)
 		}
 	}
 }
+
+// help - executes the help command to print information about commands.
+func (db *Database) heartbeat(_ context.Context, _ *models.User, _ []string) string {
+	return okPrefix
+}

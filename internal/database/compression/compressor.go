@@ -21,8 +21,9 @@ const (
 )
 
 // New - creates a new compression depends compression type.
-func New(ct CompressionType) (Compressor, error) {
-	switch ct {
+func New(ct string) (Compressor, error) {
+	compressionType := CompressionType(ct)
+	switch compressionType {
 	case Gzip:
 		return new(GzipCompressor), nil
 	case Zstd:

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/neekrasov/kvdb/internal/database/compression"
 	"gopkg.in/yaml.v3"
 )
 
@@ -81,11 +80,11 @@ type (
 	}
 
 	WALConfig struct {
-		FlushingBatchSize    int                         `yaml:"flushing_batch_size" json:"flushing_batch_size" xml:"flushing_batch_size"`
-		FlushingBatchTimeout time.Duration               `yaml:"flushing_batch_timeout" json:"flushing_batch_timeout" xml:"flushing_batch_timeout"`
-		MaxSegmentSize       string                      `yaml:"max_segment_size" json:"max_segment_size" xml:"max_segment_size"`
-		Compression          compression.CompressionType `yaml:"compression" json:"compression" xml:"compression"`
-		DataDir              string                      `yaml:"data_directory" json:"data_directory" xml:"data_directory"`
+		FlushingBatchSize    int           `yaml:"flushing_batch_size" json:"flushing_batch_size" xml:"flushing_batch_size"`
+		FlushingBatchTimeout time.Duration `yaml:"flushing_batch_timeout" json:"flushing_batch_timeout" xml:"flushing_batch_timeout"`
+		MaxSegmentSize       string        `yaml:"max_segment_size" json:"max_segment_size" xml:"max_segment_size"`
+		Compression          string        `yaml:"compression" json:"compression" xml:"compression"`
+		DataDir              string        `yaml:"data_directory" json:"data_directory" xml:"data_directory"`
 	}
 
 	RootConfig struct {

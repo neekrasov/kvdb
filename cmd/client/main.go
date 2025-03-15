@@ -15,7 +15,6 @@ import (
 
 	"github.com/chzyer/readline"
 	"github.com/neekrasov/kvdb/internal/database"
-	"github.com/neekrasov/kvdb/internal/database/compression"
 	"github.com/neekrasov/kvdb/internal/database/identity"
 	"github.com/neekrasov/kvdb/pkg/client"
 	"github.com/neekrasov/kvdb/pkg/logger"
@@ -29,10 +28,13 @@ var (
 func main() {
 	address := flag.String("address", "localhost:3223", "Address of the server")
 	idleTimeout := flag.Duration("idle_timeout", time.Second*10, "Idle timeout for connection")
+	hbInterval := flag.Duration("hb", time.Second, "Heartbeat interval")
+	cmp := flag.String("compression", "", "Type for message compression (gzip, zstd, flate, bzip2)")
 	maxMessageSizeStr := flag.String("max_message_size", "4KB", "Max message size for connection")
 	maxReconnectionAttempts := flag.Int("max_reconnection_attempts", 10, "Max reconnection client attempts")
 	username := flag.String("username", "", "Username for connection")
 	password := flag.String("password", "", "Username for connection")
+
 	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -46,7 +48,8 @@ func main() {
 			Username:             *username,
 			Password:             *password,
 			MaxReconnectAttempts: *maxReconnectionAttempts,
-			Compression:          compression.Zstd,
+			Compression:          *cmp,
+			HeartbeatInterval:    *hbInterval,
 		}, new(client.TCPClientFactory))
 	if err != nil {
 		log.Fatal(err)
