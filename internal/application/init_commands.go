@@ -28,7 +28,6 @@ func initCommandTrie() *compute.TrieNode {
 	root.Insert(compute.CommandSESSIONS, "sessions")
 	root.Insert(compute.CommandHELP, "help")
 	root.Insert(compute.CommandWATCH, "watch")
-	root.Insert(compute.CommandHEARTBEAT, "heartbeat")
 
 	return root
 }

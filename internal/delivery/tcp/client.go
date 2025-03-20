@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -21,10 +22,13 @@ func isTimeout(err error) bool {
 
 // Client - represents a TCP client connection.
 type Client struct {
-	address     string        // Server address.
-	connection  net.Conn      // The TCP connection for the client.
-	idleTimeout time.Duration // Timeout for idle connection.
-	bufferSize  int           // The buffer size for reading data.
+	address         string        // Server address.
+	idleTimeout     time.Duration // Timeout for idle connection.
+	bufferSize      int           // The buffer size for reading data.
+	keepAlivePeriod time.Duration // Period for keep alive
+
+	mu         sync.Mutex
+	connection net.Conn // The TCP connection for the client.
 }
 
 // NewClient - creates a new client with the given address and options.
@@ -38,6 +42,10 @@ func NewClient(address string, options ...ClientOption) (*Client, error) {
 		opt(client)
 	}
 
+	if client.keepAlivePeriod == 0 {
+		client.keepAlivePeriod = time.Second
+	}
+
 	if err := client.Сonnect(); err != nil {
 		return nil, fmt.Errorf("init connection failed: %w", err)
 	}
@@ -47,17 +55,32 @@ func NewClient(address string, options ...ClientOption) (*Client, error) {
 
 // Сonnect - establishes a new connection to the server.
 func (c *Client) Сonnect() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		return fmt.Errorf("dial failed: %w", err)
 	}
 	c.connection = conn
 
+	tcpConn := conn.(*net.TCPConn)
+	if err := tcpConn.SetKeepAlive(true); err != nil {
+		return fmt.Errorf("setting keep alive failed: %w", err)
+	}
+
+	if err := tcpConn.SetKeepAlivePeriod(c.keepAlivePeriod); err != nil {
+		return fmt.Errorf("setting keep alive period failed: %w", err)
+	}
+
 	return nil
 }
 
 // Send - sends a request to the server and returns the response.
 func (c *Client) Send(ctx context.Context, request []byte) ([]byte, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.connection == nil {
 		return nil, ErrConnectionClosed
 	}
@@ -77,24 +100,51 @@ func (c *Client) Send(ctx context.Context, request []byte) ([]byte, error) {
 		return nil, fmt.Errorf("error writing to connection: %w", err)
 	}
 
+	var readErr error
+	done := make(chan struct{})
 	response := make([]byte, c.bufferSize)
-	n, err := c.connection.Read(response)
-	if err != nil {
-		if isTimeout(err) {
-			return nil, errors.Join(ErrTimeout, err)
+
+	go func() {
+		n, err := c.connection.Read(response)
+		if err != nil {
+			if isTimeout(err) {
+				readErr = errors.Join(ErrTimeout, err)
+			} else {
+				readErr = fmt.Errorf("error reading from connection: %w", err)
+			}
+		} else if n >= c.bufferSize {
+			readErr = ErrSmallBufferSize
+		} else {
+			response = response[:n]
 		}
-		return nil, fmt.Errorf("error reading from connection: %w", err)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return response, readErr
+	case <-ctx.Done():
+		if err := c.cancelCurrentOperationLocked(); err != nil {
+			return nil, fmt.Errorf("failed to cancel operation: %w", err)
+		}
+
+		return nil, fmt.Errorf("operation canceled: %w", ctx.Err())
+	}
+}
+
+func (c *Client) cancelCurrentOperationLocked() error {
+	if _, err := c.connection.Write([]byte(cancelCommand)); err != nil {
+		return fmt.Errorf("failed to send cancel request: %w", err)
 	}
 
-	if n >= c.bufferSize {
-		return nil, ErrSmallBufferSize
-	}
-
-	return response[:n], nil
+	return nil
 }
 
 // Close - closes the client connection.
 func (c *Client) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.connection != nil {
 		if err := c.connection.Close(); err != nil {
 			return fmt.Errorf("error closing connection: %w", err)

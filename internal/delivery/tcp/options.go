@@ -66,3 +66,10 @@ func WithClientBufferSize(size uint) ClientOption {
 		client.bufferSize = int(size)
 	}
 }
+
+// WithKeepAlive - sets the keep alive period for the client.
+func WithKeepAlivePeriod(period time.Duration) ClientOption {
+	return func(client *Client) {
+		client.keepAlivePeriod = period
+	}
+}

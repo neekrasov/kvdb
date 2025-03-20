@@ -19,6 +19,7 @@ import (
 const (
 	defaultConnIDLen   = 16
 	defaultIdleTimeout = 30 * time.Second
+	cancelCommand      = "CANCEL"
 )
 
 type (
@@ -153,42 +154,69 @@ func (s *Server) handleConnection(
 		}
 	}
 
-	buffer := make([]byte, s.bufferSize)
-	resCh := make(chan []byte)
-	errCh := make(chan error)
-	for {
-		// TODO: add heartbeat and remove deadline.
-		deadline := time.Now().Add(s.idleTimeout)
-		if err := conn.SetDeadline(deadline); err != nil {
-			logger.Warn("failed to set read/write deadline", zap.Error(err))
-			return
-		}
+	commandCh := make(chan []byte)
+	errorCh := make(chan error)
 
-		ctx, cancel := context.WithDeadline(ctx, deadline)
-		defer cancel()
-
-		go func() {
-			n, err := Read(conn, buffer, int(s.bufferSize))
+	go func() {
+		buffer := make([]byte, s.bufferSize)
+		for {
+			n, err := conn.Read(buffer)
 			if err != nil {
-				errCh <- err
-				return
-			}
+				if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+					logger.Debug("client closed connection", zap.String("session", sessionID))
+					errorCh <- err
+					return
+				}
 
-			resCh <- handler(ctx, sessionID, buffer[:n])
-		}()
-
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-errCh:
-			if err != nil {
 				logger.Warn("error reading from connection",
 					zap.Stringer("address", conn.RemoteAddr()),
 					zap.String("session", sessionID),
 					zap.Error(err),
 				)
+				errorCh <- err
 				return
 			}
+
+			commandCh <- buffer[:n]
+		}
+	}()
+
+	var (
+		opCtx  context.Context
+		cancel context.CancelFunc
+	)
+
+	resCh := make(chan []byte)
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Debug("server context canceled", zap.String("session", sessionID))
+			return
+		case err := <-errorCh:
+			logger.Warn("connection error", zap.String("session", sessionID), zap.Error(err))
+			return
+		case command := <-commandCh:
+			if string(command) == cancelCommand {
+				logger.Debug("received CANCEL command", zap.String("session", sessionID))
+				if cancel != nil {
+					cancel()
+					cancel = nil
+				}
+				continue
+			}
+
+			if cancel != nil {
+				logger.Debug("operation in progress, ignoring new command",
+					zap.String("session", sessionID), zap.String("cmd", string(command)))
+				continue
+			}
+
+			go func() {
+				opCtx, cancel = context.WithCancel(ctx)
+				defer cancel()
+
+				resCh <- handler(opCtx, sessionID, command)
+			}()
 		case resp := <-resCh:
 			if _, err := conn.Write(resp); err != nil {
 				logger.Warn("failed to write data",
@@ -197,6 +225,11 @@ func (s *Server) handleConnection(
 					zap.Error(err),
 				)
 				return
+			}
+
+			if cancel != nil {
+				cancel()
+				cancel = nil
 			}
 		}
 	}
@@ -230,10 +263,8 @@ func Read(conn net.Conn, b []byte, size int) (int, error) {
 
 		logger.Error("error reading from connection", zap.Error(err))
 		return 0, err
-	}
-
-	if n == int(size) {
-		logger.Warn("buffer overflow", zap.Int("buffer_size_bytes", int(size)))
+	} else if n == size {
+		logger.Warn("buffer overflow", zap.Int("buffer_size_bytes", size))
 		return 0, errors.New("buffer overflow")
 	}
 

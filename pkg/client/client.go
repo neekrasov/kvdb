@@ -50,7 +50,7 @@ type Config struct {
 	MaxReconnectAttempts int           `json:"maxReconnectAttempts"`
 	IdleTimeout          time.Duration `json:"idleTimeout"`
 	ReconnectBaseDelay   time.Duration `json:"reconnectBaseDelay"`
-	HeartbeatInterval    time.Duration `json:"heartBeatInterval"`
+	KeepAliveInterval    time.Duration `json:"keepAliveInterval"`
 }
 
 // Client - represents a client for interacting with a KVDB server.
@@ -92,7 +92,7 @@ func New(
 		client.compressor = compressor
 	}
 
-	if err := client.connect(ctx); err != nil {
+	if err := client.connect(); err != nil {
 		return nil, fmt.Errorf("initial connection failed: %w", err)
 	}
 
@@ -104,7 +104,7 @@ func New(
 }
 
 // connect - establishes a new connection to the server.
-func (k *Client) connect(ctx context.Context) error {
+func (k *Client) connect() error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
@@ -130,8 +130,6 @@ func (k *Client) connect(ctx context.Context) error {
 		return err
 	}
 	k.client = client
-
-	k.sendHeartBeats(ctx)
 
 	return nil
 }
@@ -167,7 +165,6 @@ func (k *Client) sendWithRetries(ctx context.Context, request []byte) (string, e
 			return "", ErrMaxReconnects
 		}
 
-		// TODO: add heartbeats.
 		resBytes, err := k.client.Send(ctx, request)
 		if err == nil {
 			resString := string(resBytes)
@@ -189,41 +186,17 @@ func (k *Client) sendWithRetries(ctx context.Context, request []byte) (string, e
 			continue
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return "", ctx.Err()
+		}
+
 		if err := k.reconnect(ctx, attempt); err != nil {
 			return "", fmt.Errorf("reconnect failed: %w", err)
 		}
 	}
 }
 
-func (k *Client) sendHeartBeats(ctx context.Context) {
-	go func() {
-		if k.cfg.HeartbeatInterval == 0 {
-			return
-		}
-
-		ticker := time.NewTicker(k.cfg.HeartbeatInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				res, err := k.client.Send(ctx, []byte(compute.CommandHEARTBEAT.Make()))
-				if err != nil {
-					return
-				}
-
-				if database.IsError(string(res)) {
-					fmt.Println(string(res))
-					return
-				}
-			}
-		}
-	}()
-}
-
-func (k *Client) send(ctx context.Context, query string) (string, error) {
+func (k *Client) sendRetry(ctx context.Context, query string) (string, error) {
 	res, err := k.sendWithRetries(ctx, []byte(query))
 	if err != nil {
 		return "", fmt.Errorf("send query failed: %w", err)
@@ -256,7 +229,7 @@ func (k *Client) reconnect(ctx context.Context, attempt int) error {
 		return ctx.Err()
 	}
 
-	if err := k.connect(ctx); err != nil {
+	if err := k.connect(); err != nil {
 		return fmt.Errorf("connect failed: %w", err)
 	}
 
@@ -269,7 +242,7 @@ func (k *Client) reconnect(ctx context.Context, attempt int) error {
 
 // Send - sends a query to the KVDB server and returns the result or an error.
 func (k *Client) Raw(ctx context.Context, query string) (string, error) {
-	return k.send(ctx, query)
+	return k.sendRetry(ctx, query)
 }
 
 func (k *Client) Set(ctx context.Context, key, value string) error {
@@ -285,7 +258,7 @@ func (k *Client) Set(ctx context.Context, key, value string) error {
 		data = value
 	}
 
-	if _, err := k.send(ctx, compute.CommandSET.Make(key, data)); err != nil {
+	if _, err := k.sendRetry(ctx, compute.CommandSET.Make(key, data)); err != nil {
 		return fmt.Errorf("failed to set '%s': %w", key, err)
 	}
 
@@ -293,7 +266,7 @@ func (k *Client) Set(ctx context.Context, key, value string) error {
 }
 
 func (k *Client) Get(ctx context.Context, key string) (string, error) {
-	response, err := k.send(ctx, compute.CommandGET.Make(key))
+	response, err := k.sendRetry(ctx, compute.CommandGET.Make(key))
 	if err != nil {
 		return "", fmt.Errorf("failed to get '%s': %w", key, err)
 	}
@@ -319,7 +292,7 @@ func (k *Client) Get(ctx context.Context, key string) (string, error) {
 }
 
 func (k *Client) Del(ctx context.Context, key string) error {
-	if _, err := k.send(ctx, compute.CommandDEL.Make(key)); err != nil {
+	if _, err := k.sendRetry(ctx, compute.CommandDEL.Make(key)); err != nil {
 		return fmt.Errorf("failed to del '%s': %w", key, err)
 	}
 

@@ -150,7 +150,6 @@ func New(
 		compute.CommandSET:             {Func: db.set},
 		compute.CommandDEL:             {Func: db.del},
 		compute.CommandWATCH:           {Func: db.watch},
-		compute.CommandHEARTBEAT:       {Func: db.heartbeat},
 	}
 
 	return &db

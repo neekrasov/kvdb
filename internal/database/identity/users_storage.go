@@ -7,6 +7,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
 	"github.com/neekrasov/kvdb/internal/database/storage"
 	"github.com/neekrasov/kvdb/pkg/gob"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -40,7 +41,8 @@ func (s *UsersStorage) Authenticate(ctx context.Context, username, password stri
 		return nil, err
 	}
 
-	if user.Password != password {
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(user.Password), []byte(password)); err != nil {
 		return nil, ErrAuthenticationFailed
 	}
 
@@ -129,9 +131,15 @@ func (s *UsersStorage) Create(ctx context.Context, username, password string) (*
 		return nil, ErrUserAlreadyExists
 	}
 
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
 	user := models.User{
 		Username:   username,
-		Password:   password,
+		Password:   string(hashedPassword),
 		Roles:      []string{models.DefaultRoleName},
 		ActiveRole: models.DefaultRole,
 	}
@@ -154,6 +162,14 @@ func (s *UsersStorage) SaveRaw(ctx context.Context, user *models.User) error {
 	key := storage.MakeKey(models.SystemUserNameSpace, user.Username)
 	if _, err := s.storage.Get(ctx, key); err == nil {
 		return ErrUserAlreadyExists
+	}
+
+	if user.Password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		user.Password = string(hashedPassword)
 	}
 
 	userBytes, err := gob.Encode(user)

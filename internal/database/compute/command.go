@@ -126,9 +126,6 @@ const (
 
 	// Watch command
 	CommandWATCH CommandType = "watch"
-
-	// Heartbeat command
-	CommandHEARTBEAT CommandType = "heartbeat"
 )
 
 // String - convert CommandType into string/
@@ -190,8 +187,7 @@ func (cmd *Command) Validate() error {
 			return fmt.Errorf("%w: %s command requires exactly 3 arguments", ErrInvalidCommand, cmd.Type)
 		}
 	case CommandUSERS, CommandME, CommandROLES,
-		CommandNAMESPACES, CommandHELP, CommandSESSIONS,
-		CommandHEARTBEAT:
+		CommandNAMESPACES, CommandHELP, CommandSESSIONS:
 		if len(cmd.Args) > 0 {
 			return fmt.Errorf("%w: command '%s' does not accept arguments", ErrInvalidCommand, cmd.Type)
 		}

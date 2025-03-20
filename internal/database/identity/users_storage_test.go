@@ -11,6 +11,8 @@ import (
 	"github.com/neekrasov/kvdb/pkg/gob"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestUsersStorage(t *testing.T) {
@@ -50,8 +52,12 @@ func TestUsersStorage(t *testing.T) {
 		password := "authPass"
 		key := storage.MakeKey(models.SystemUserNameSpace, username)
 
-		user := models.User{Username: username, Password: password}
-		userBytes, _ := gob.Encode(user)
+		passBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		require.Nil(t, err)
+
+		user := models.User{Username: username, Password: string(passBytes)}
+		userBytes, err := gob.Encode(user)
+		require.Nil(t, err)
 
 		mockStorage.On("Get", mock.Anything, key).Return(string(userBytes), nil).Once()
 

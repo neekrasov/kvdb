@@ -27,8 +27,8 @@ var (
 
 func main() {
 	address := flag.String("address", "localhost:3223", "Address of the server")
-	idleTimeout := flag.Duration("idle_timeout", time.Second*10, "Idle timeout for connection")
-	hbInterval := flag.Duration("hb", time.Second, "Heartbeat interval")
+	idleTimeout := flag.Duration("idle_timeout", 0, "Idle timeout for connection")
+	keepAliveInterval := flag.Duration("keep_alive", time.Second*2, "Keep alive interval")
 	cmp := flag.String("compression", "", "Type for message compression (gzip, zstd, flate, bzip2)")
 	maxMessageSizeStr := flag.String("max_message_size", "4KB", "Max message size for connection")
 	maxReconnectionAttempts := flag.Int("max_reconnection_attempts", 10, "Max reconnection client attempts")
@@ -49,7 +49,7 @@ func main() {
 			Password:             *password,
 			MaxReconnectAttempts: *maxReconnectionAttempts,
 			Compression:          *cmp,
-			HeartbeatInterval:    *hbInterval,
+			KeepAliveInterval:    *keepAliveInterval,
 		}, new(client.TCPClientFactory))
 	if err != nil {
 		log.Fatal(err)
@@ -104,10 +104,13 @@ func CLI(
 			continue
 		}
 
+		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer cancel()
+
 		res, err := client.Raw(ctx, query)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				return nil
+				continue
 			}
 
 			if strings.Contains(err.Error(), identity.ErrExpiresSession.Error()) {
