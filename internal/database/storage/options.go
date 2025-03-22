@@ -43,3 +43,10 @@ func WithCleanupBatchSize(batchSize int) StorageOpt {
 		s.cleanupBatchSize = batchSize
 	}
 }
+
+// WithPartitionNum - configures Engine with a cleanup period.
+func WithStatistics() StorageOpt {
+	return func(s *Storage) {
+		s.stats = &Stats{StartTime: time.Now()}
+	}
+}

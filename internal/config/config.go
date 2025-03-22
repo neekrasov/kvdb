@@ -21,6 +21,7 @@ type (
 		Replication     *ReplicationConfig `yaml:"replication" json:"replication" xml:"replication"`
 		CleanupConfig   *CleanupConfig     `yaml:"cleanup" json:"cleanup" xml:"cleanup"`
 		PwdPolicyConfig *PwdPolicyConfig   `yaml:"pwd" json:"pwd" xml:"pwd"`
+		StatEnabled     bool               `yaml:"stat_enabled" json:"stat_enabled" xml:"stat_enabled"`
 
 		// -- default optional params
 		DefaultRoles      []RoleConfig      `yaml:"default_roles" json:"default_roles" xml:"default_roles"`

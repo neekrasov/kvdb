@@ -6,8 +6,24 @@ import (
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
+	"github.com/neekrasov/kvdb/internal/database/storage"
 	pkgsync "github.com/neekrasov/kvdb/pkg/sync"
 )
+
+// Stats - structure for storing statistical databases.
+type Stats struct {
+	Uptime          float64 `json:"uptime"`           // Server uptime.
+	TotalCommands   int64   `json:"total_commands"`   // Total number of commands executed.
+	GetCommands     int64   `json:"get_commands"`     // Number of GET commands.
+	SetCommands     int64   `json:"set_commands"`     // Number of SET commands.
+	DelCommands     int64   `json:"del_commands"`     // Number of DEL commands.
+	TotalKeys       int64   `json:"total_keys"`       // Total number of keys in the storage (approximate).
+	ExpiredKeys     int64   `json:"expired_keys"`     // Number of expired keys (deleted).
+	ActiveSessions  int64   `json:"active_sessions"`  // Number of active sessions.
+	TotalNamespaces int64   `json:"total_namespaces"` // Number of namespaces.
+	TotalRoles      int64   `json:"total_roles"`      // Number of roles.
+	TotalUsers      int64   `json:"total_users"`      // Number of users.
+}
 
 // Parser - parses user queries into executable commands.
 type Parser interface {
@@ -25,6 +41,8 @@ type Storage interface {
 	Del(ctx context.Context, key string) error
 	// Watch - watches the key and returns the value if it has changed.
 	Watch(ctx context.Context, key string) pkgsync.FutureString
+	// Stats - returns the collected database statistics.
+	Stats() (*storage.Stats, error)
 }
 
 // NamespacesStorage - interface for managing namespaces.
@@ -150,6 +168,7 @@ func New(
 		compute.CommandSET:             {Func: db.set},
 		compute.CommandDEL:             {Func: db.del},
 		compute.CommandWATCH:           {Func: db.watch},
+		compute.CommandSTAT:            {Func: db.stat},
 	}
 
 	return &db

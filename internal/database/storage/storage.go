@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/neekrasov/kvdb/internal/database/compute"
@@ -21,6 +22,17 @@ var (
 )
 
 type (
+	// Stats - structure for storing 'storage' statistics.
+	Stats struct {
+		StartTime     time.Time    `json:"start_time"`     // Server startup time.
+		TotalCommands atomic.Int64 `json:"total_commands"` // Total number of commands executed.
+		GetCommands   atomic.Int64 `json:"get_commands"`   // Number of GET commands.
+		SetCommands   atomic.Int64 `json:"set_commands"`   // Number of SET commands.
+		DelCommands   atomic.Int64 `json:"del_commands"`   // Number of DEL commands.
+		TotalKeys     atomic.Int64 `json:"total_keys"`     // Total number of keys in the storage (approximate).
+		ExpiredKeys   atomic.Int64 `json:"expired_keys"`   // Number of expired keys (deleted).
+	}
+
 	// Engine - key-value storage operations.
 	Engine interface {
 		Set(ctx context.Context, key, value string, ttl int64)
@@ -51,6 +63,8 @@ type Storage struct {
 	engine  Engine
 	wal     WAL
 	gen     *pkgsync.IDGenerator
+
+	stats *Stats
 
 	cleanupPeriod    time.Duration
 	cleanupBatchSize int
@@ -119,7 +133,17 @@ func (s *Storage) Set(ctx context.Context, key, value string) error {
 		return err
 	}
 
+	if s.stats != nil {
+		s.stats.SetCommands.Add(1)
+		s.stats.TotalCommands.Add(1)
+
+		if _, exists := s.engine.Get(ctx, key); !exists {
+			s.stats.TotalKeys.Add(1)
+		}
+	}
+
 	s.engine.Set(ctx, key, value, ttl)
+
 	return nil
 }
 
@@ -131,6 +155,11 @@ func (s *Storage) Get(ctx context.Context, key string) (string, error) {
 	val, exists := s.engine.Get(ctx, key)
 	if !exists {
 		return "", ErrKeyNotFound
+	}
+
+	if s.stats != nil {
+		s.stats.GetCommands.Add(1)
+		s.stats.TotalCommands.Add(1)
 	}
 
 	return val, nil
@@ -150,7 +179,18 @@ func (s *Storage) Del(ctx context.Context, key string) error {
 		return err
 	}
 
-	return s.engine.Del(ctx, key)
+	err = s.engine.Del(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	if s.stats != nil {
+		s.stats.DelCommands.Add(1)
+		s.stats.TotalCommands.Add(1)
+		s.stats.TotalKeys.Add(-1)
+	}
+
+	return nil
 }
 
 // Watch - watches the key and returns the value if it has changed.
@@ -171,17 +211,30 @@ func (s *Storage) applyFunc(ctx context.Context, entries []wal.LogEntry) error {
 	for _, entry := range entries {
 		lastLSN = max(lastLSN, entry.LSN)
 		ctx := ctxutil.InjectTxID(ctx, entry.LSN)
+
 		switch entry.Operation {
 		case compute.SetCommandID:
 			s.engine.Set(ctx, entry.Args[0], entry.Args[1], 0)
+
+			if s.stats != nil {
+				s.stats.SetCommands.Add(1)
+			}
 		case compute.DelCommandID:
 			if err := s.engine.Del(ctx, entry.Args[0]); err != nil {
 				return fmt.Errorf("apply del (%s) failed: %w", entry.Args[0], err)
+			}
+
+			if s.stats != nil {
+				s.stats.DelCommands.Add(1)
 			}
 		case compute.UnknownCommandID:
 			return nil
 		default:
 			return fmt.Errorf("unrecognized command (id: %d, args %v)", entry.Operation, entry.Args)
+		}
+
+		if s.stats != nil {
+			s.stats.TotalCommands.Add(1)
 		}
 
 		logger.Debug("recovered log entry",
@@ -209,13 +262,13 @@ func (s *Storage) startCleanupExpiresKeys(ctx context.Context) {
 					s.gen.Generate(), compute.DelCommandID, []string{key},
 				))
 				if len(entries) == s.cleanupBatchSize {
-					s.cleanupKeys(entries)
+					s.cleanupKeys(ctx, entries)
 					entries = entries[:0]
 				}
 			})
 
 			if len(entries) > 0 {
-				s.cleanupKeys(entries)
+				s.cleanupKeys(ctx, entries)
 				entries = entries[:0]
 			}
 		case <-ctx.Done():
@@ -225,11 +278,23 @@ func (s *Storage) startCleanupExpiresKeys(ctx context.Context) {
 	}
 }
 
-func (s *Storage) cleanupKeys(entries []wal.WriteEntry) {
+func (s *Storage) cleanupKeys(ctx context.Context, entries []wal.WriteEntry) {
 	s.wal.Flush(entries)
 	for _, entry := range entries {
 		key := entry.Log().Args[0]
-		s.engine.Del(context.Background(), key)
+		s.engine.Del(ctx, key)
+		if s.stats != nil {
+			s.stats.ExpiredKeys.Add(1)
+		}
 		logger.Debug("removed expired key (background)", zap.String("key", key))
 	}
+}
+
+// Stats - returns the collected database statistics.
+func (s *Storage) Stats() (*Stats, error) {
+	if s.stats == nil {
+		return nil, errors.New("statistics disabled")
+	}
+
+	return s.stats, nil
 }

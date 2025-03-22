@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/identity"
@@ -484,4 +485,48 @@ func (db *Database) watch(ctx context.Context, user *models.User, args []string)
 			return WrapOK(val)
 		}
 	}
+}
+
+// stat - displays database statistics.
+func (db *Database) stat(ctx context.Context, _ *models.User, _ []string) string {
+	storageStats, err := db.storage.Stats()
+	if err != nil {
+		return WrapError(err)
+	}
+
+	namespaces, err := db.namespaceStorage.List(ctx)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	roles, err := db.rolesStorage.List(ctx)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	users, err := db.userStorage.ListUsernames(ctx)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	stats := Stats{
+		ActiveSessions:  int64(len(db.sessions.List())),
+		TotalNamespaces: int64(len(namespaces)),
+		TotalRoles:      int64(len(roles)),
+		TotalUsers:      int64(len(users)),
+		Uptime:          time.Since(storageStats.StartTime).Seconds(),
+		TotalCommands:   storageStats.TotalCommands.Load(),
+		GetCommands:     storageStats.GetCommands.Load(),
+		SetCommands:     storageStats.SetCommands.Load(),
+		DelCommands:     storageStats.DelCommands.Load(),
+		TotalKeys:       storageStats.TotalKeys.Load(),
+		ExpiredKeys:     storageStats.ExpiredKeys.Load(),
+	}
+
+	res, err := json.Marshal(stats)
+	if err != nil {
+		return WrapError(err)
+	}
+
+	return WrapOK(string(res))
 }

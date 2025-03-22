@@ -89,6 +89,10 @@ func (a *Application) Start(ctx context.Context) error {
 		)
 	}
 
+	if a.cfg.StatEnabled {
+		options = append(options, storage.WithStatistics())
+	}
+
 	dstorage, err := storage.NewStorage(ctx, engine, options...)
 	if err != nil {
 		return fmt.Errorf("initialize storage failed: %w", err)

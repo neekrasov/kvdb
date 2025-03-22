@@ -7,6 +7,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	storage "github.com/neekrasov/kvdb/internal/database/storage"
+
 	sync "github.com/neekrasov/kvdb/pkg/sync"
 )
 
@@ -171,6 +173,63 @@ func (_c *Storage_Set_Call) Return(_a0 error) *Storage_Set_Call {
 }
 
 func (_c *Storage_Set_Call) RunAndReturn(run func(context.Context, string, string) error) *Storage_Set_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Stats provides a mock function with no fields
+func (_m *Storage) Stats() (*storage.Stats, error) {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Stats")
+	}
+
+	var r0 *storage.Stats
+	var r1 error
+	if rf, ok := ret.Get(0).(func() (*storage.Stats, error)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() *storage.Stats); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*storage.Stats)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Storage_Stats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Stats'
+type Storage_Stats_Call struct {
+	*mock.Call
+}
+
+// Stats is a helper method to define mock.On call
+func (_e *Storage_Expecter) Stats() *Storage_Stats_Call {
+	return &Storage_Stats_Call{Call: _e.mock.On("Stats")}
+}
+
+func (_c *Storage_Stats_Call) Run(run func()) *Storage_Stats_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Storage_Stats_Call) Return(_a0 *storage.Stats, _a1 error) *Storage_Stats_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Storage_Stats_Call) RunAndReturn(run func() (*storage.Stats, error)) *Storage_Stats_Call {
 	_c.Call.Return(run)
 	return _c
 }
