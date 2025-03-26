@@ -161,6 +161,7 @@ func New(
 		compute.CommandSESSIONS:        {Func: db.listSessions, AdminOnly: true},
 		compute.CommandDELETEUSER:      {Func: db.deleteUser, AdminOnly: true},
 		compute.CommandDIVESTROLE:      {Func: db.divestRole, AdminOnly: true},
+		compute.CommandSTAT:            {Func: db.stat, AdminOnly: true},
 		compute.CommandHELP:            {Func: db.help},
 		compute.CommandSETNS:           {Func: db.setNamespace},
 		compute.CommandME:              {Func: db.me},
@@ -168,7 +169,6 @@ func New(
 		compute.CommandSET:             {Func: db.set},
 		compute.CommandDEL:             {Func: db.del},
 		compute.CommandWATCH:           {Func: db.watch},
-		compute.CommandSTAT:            {Func: db.stat},
 	}
 
 	return &db

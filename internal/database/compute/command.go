@@ -42,6 +42,10 @@ Available commands for admins:
 
   Help command:
     help - Display this help message.
+
+  Other commands:
+    watch <key> - Watches the key and returns the value if it has changed.
+	stat - Displays database statistics.
 `
 
 	UserHelpText = `
@@ -62,6 +66,9 @@ Available commands for users:
 
   Help command:
     help - Display this help message.
+
+  Other commands:
+    watch <key> - Watches the key and returns the value if it has changed.
 `
 )
 
