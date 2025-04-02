@@ -27,6 +27,10 @@ var (
 
 // HandleQuery -  processes a user query by parsing and executing the corresponding command.
 func (db *Database) HandleQuery(ctx context.Context, sessionID string, query string) string {
+	if ctx.Err() != nil {
+		return WrapError(ctx.Err())
+	}
+
 	session, err := db.sessions.Get(sessionID)
 	if err != nil {
 		logger.Debug("get current session failed", zap.Error(err), zap.String("session", sessionID))
@@ -167,10 +171,10 @@ func (db *Database) Logout(ctx context.Context, sessionID string) string {
 // help - executes the help command to print information about commands.
 func (db *Database) help(ctx context.Context, usr *models.User, _ []string) string {
 	if usr.IsAdmin(db.cfg) {
-		return compute.AdminHelpText
+		return WrapOK(compute.AdminHelpText)
 	}
 
-	return compute.UserHelpText
+	return WrapOK(compute.UserHelpText)
 }
 
 // help - executes the help command to print information about commands.

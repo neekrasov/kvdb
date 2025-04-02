@@ -45,7 +45,7 @@ Available commands for admins:
 
   Other commands:
     watch <key> - Watches the key and returns the value if it has changed.
-	stat - Displays database statistics.
+    stat - Displays database statistics.
 `
 
 	UserHelpText = `

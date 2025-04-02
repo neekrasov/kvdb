@@ -1,6 +1,9 @@
 package models
 
-import "github.com/neekrasov/kvdb/internal/config"
+import (
+	"github.com/neekrasov/kvdb/internal/config"
+	"golang.org/x/crypto/bcrypt"
+)
 
 // User - struct representing a user in the system.
 type User struct {
@@ -12,5 +15,10 @@ type User struct {
 
 // IsAdmin - checks if the user is an admin by comparing their username and password with the system's root configuration.
 func (u *User) IsAdmin(cfg *config.RootConfig) bool {
-	return u.Username == cfg.Username && u.Password == cfg.Password
+	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(cfg.Password))
+	if err != nil {
+		return false
+	}
+
+	return u.Username == cfg.Username
 }

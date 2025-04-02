@@ -29,13 +29,6 @@ func WithDisconnectionHandler(handler ConnectionHandler) ServerOption {
 	}
 }
 
-// // WithDisconnectionHandler - handler activates where client disconnect.
-// func WithConnectionStorage(st *ConnectionStorage) ServerOption {
-// 	return func(server *Server) {
-// 		server.connectionStorage = st
-// 	}
-// }
-
 // WithServerBufferSize - sets the buffer size for reading client data.
 func WithServerBufferSize(size uint) ServerOption {
 	return func(server *Server) {

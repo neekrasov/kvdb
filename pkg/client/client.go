@@ -34,10 +34,6 @@ type (
 		Close() error
 		Send(ctx context.Context, request []byte) ([]byte, error)
 	}
-
-	Parser interface {
-		Parse(query string) (*compute.Command, error)
-	}
 )
 
 // Config - holds the configuration settings for the KVDB client.
@@ -245,6 +241,7 @@ func (k *Client) Raw(ctx context.Context, query string) (string, error) {
 	return k.sendRetry(ctx, query)
 }
 
+// Set - stores a value for a given key.
 func (k *Client) Set(ctx context.Context, key, value string) error {
 	var data string
 	if k.compressor != nil {
@@ -265,10 +262,11 @@ func (k *Client) Set(ctx context.Context, key, value string) error {
 	return nil
 }
 
+// Get - retrieves the value associated with a given key.
 func (k *Client) Get(ctx context.Context, key string) (string, error) {
 	response, err := k.sendRetry(ctx, compute.CommandGET.Make(key))
 	if err != nil {
-		return "", fmt.Errorf("failed to get '%s': %w", key, err)
+		return "", fmt.Errorf("failed to get key '%s': %w", key, err)
 	}
 
 	var value string
@@ -291,9 +289,28 @@ func (k *Client) Get(ctx context.Context, key string) (string, error) {
 	return value, nil
 }
 
+// Del - removes a key and its value from the storage.
 func (k *Client) Del(ctx context.Context, key string) error {
 	if _, err := k.sendRetry(ctx, compute.CommandDEL.Make(key)); err != nil {
-		return fmt.Errorf("failed to del '%s': %w", key, err)
+		return fmt.Errorf("failed to del key '%s': %w", key, err)
+	}
+
+	return nil
+}
+
+// Watch - watches the key and returns the value if it has changed.
+func (k *Client) Watch(ctx context.Context, key string) error {
+	if _, err := k.sendRetry(ctx, compute.CommandWATCH.Make(key)); err != nil {
+		return fmt.Errorf("failed to watch key '%s': %w", key, err)
+	}
+
+	return nil
+}
+
+// Stats - returns the collected database statistics.
+func (k *Client) Stats(ctx context.Context, key string) error {
+	if _, err := k.sendRetry(ctx, compute.CommandSTAT.Make()); err != nil {
+		return fmt.Errorf("failed to watch key '%s': %w", key, err)
 	}
 
 	return nil

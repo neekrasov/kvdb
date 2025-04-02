@@ -170,7 +170,7 @@ func processValue(result *bytes.Buffer, prefix string, value any) {
 		}
 	default:
 		if prefix == "" {
-			result.WriteString(fmt.Sprintf("%v", v))
+			result.WriteString(fmt.Sprintf("%v ", v))
 		} else {
 			result.WriteString(fmt.Sprintf("\n%s: %v", prefix, v))
 		}
