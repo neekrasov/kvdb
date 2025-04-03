@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"os/signal"
@@ -18,49 +17,77 @@ import (
 	"github.com/neekrasov/kvdb/internal/database/identity"
 	"github.com/neekrasov/kvdb/pkg/client"
 	"github.com/neekrasov/kvdb/pkg/logger"
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
 var (
 	ErrWriteLineFailed = errors.New("write line failed")
+	version            = "dev"
+	buildTime          = "unknown"
+	gitHash            = "unset"
 )
 
 func main() {
-	address := flag.String("address", "localhost:3223", "Address of the server")
-	idleTimeout := flag.Duration("idle_timeout", 0, "Idle timeout for connection")
-	keepAliveInterval := flag.Duration("keep_alive", time.Second*2, "Keep alive interval")
-	cmp := flag.String("compression", "", "Type for message compression (gzip, zstd, flate, bzip2)")
-	maxMessageSizeStr := flag.String("max_message_size", "4KB", "Max message size for connection")
-	maxReconnectionAttempts := flag.Int("max_reconnection_attempts", 10, "Max reconnection client attempts")
-	username := flag.String("username", "", "Username for connection")
-	password := flag.String("password", "", "Username for connection")
-
-	flag.Parse()
-
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
-
-	kvdb, err := client.New(ctx,
-		&client.Config{
-			Address:              *address,
-			IdleTimeout:          *idleTimeout,
-			MaxMessageSize:       *maxMessageSizeStr,
-			Username:             *username,
-			Password:             *password,
-			MaxReconnectAttempts: *maxReconnectionAttempts,
-			Compression:          *cmp,
-			KeepAliveInterval:    *keepAliveInterval,
-		}, new(client.TCPClientFactory))
-	if err != nil {
-		log.Fatal(err)
+	rootCmd := &cobra.Command{
+		Use:   "kvdb-client",
+		Short: "KVDB command line client",
 	}
 
-	rl, err := readline.New("$ ")
-	if err != nil {
-		log.Fatalf("failed to create readline instance: %s", err.Error())
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("kvdb client version %s\nbuild time: %s\nhash: %s\n",
+				version, buildTime, gitHash)
+		},
+	})
+
+	runCmd := &cobra.Command{
+		Use:   "run",
+		Short: "Run the interactive client",
+		Run: func(cmd *cobra.Command, args []string) {
+			cfg := client.Config{
+				Address:              cmd.Flag("address").Value.String(),
+				IdleTimeout:          mustParseDuration(cmd.Flag("idle_timeout").Value.String()),
+				MaxMessageSize:       cmd.Flag("max_message_size").Value.String(),
+				Username:             cmd.Flag("username").Value.String(),
+				Password:             cmd.Flag("password").Value.String(),
+				MaxReconnectAttempts: mustParseInt(cmd.Flag("max_reconnection_attempts").Value.String()),
+				Compression:          cmd.Flag("compression").Value.String(),
+				KeepAliveInterval:    mustParseDuration(cmd.Flag("keep_alive").Value.String()),
+			}
+
+			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+			defer cancel()
+
+			kvdb, err := client.New(ctx, &cfg, new(client.TCPClientFactory))
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			rl, err := readline.New("$ ")
+			if err != nil {
+				log.Fatalf("failed to create readline instance: %s", err.Error())
+			}
+
+			if err = CLI(ctx, rl, kvdb); err != nil {
+				log.Fatal(err)
+			}
+		},
 	}
 
-	if err = CLI(ctx, rl, kvdb); err != nil {
+	runCmd.Flags().StringP("address", "a", "localhost:3223", "Address of the server")
+	runCmd.Flags().Duration("idle_timeout", 0, "Idle timeout for connection")
+	runCmd.Flags().Duration("keep_alive", time.Second*2, "Keep alive interval")
+	runCmd.Flags().String("compression", "", "Type for message compression (gzip, zstd, flate, bzip2)")
+	runCmd.Flags().String("max_message_size", "4KB", "Max message size for connection")
+	runCmd.Flags().Int("max_reconnection_attempts", 10, "Max reconnection client attempts")
+	runCmd.Flags().String("username", "", "Username for connection")
+	runCmd.Flags().String("password", "", "Password for connection")
+
+	rootCmd.AddCommand(runCmd)
+	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -175,4 +202,21 @@ func processValue(result *bytes.Buffer, prefix string, value any) {
 			result.WriteString(fmt.Sprintf("\n%s: %v", prefix, v))
 		}
 	}
+}
+
+func mustParseDuration(s string) time.Duration {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0
+	}
+	return d
+}
+
+func mustParseInt(s string) int {
+	var i int
+	_, err := fmt.Sscanf(s, "%d", &i)
+	if err != nil {
+		return 0
+	}
+	return i
 }
