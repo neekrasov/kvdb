@@ -12,7 +12,7 @@ import (
 var (
 	logger *zap.Logger
 
-	defaultLoggerFilename        = "logs/app.log"
+	defaultLoggerFilename        = "/var/log/kvdb/server.log"
 	defaultLoggerMaxSizeMb       = 10
 	defaultLoggerMaxBackupsCount = 3
 	defaultLoggerMaxAgeDays      = 7

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -100,7 +101,34 @@ func GetConfig(path string) (Config, error) {
 		return Config{}, err
 	}
 
-	return ParseConfig(configContent)
+	config, err := ParseConfig(configContent)
+	if err != nil {
+		return Config{}, err
+	}
+
+	if envDir := os.Getenv("KVDB_DATA_DIR"); envDir != "" {
+		if config.WAL != nil {
+			config.WAL.DataDir = envDir
+		} else {
+			config.WAL = &WALConfig{
+				DataDir: envDir,
+			}
+		}
+
+	}
+	if envLog := os.Getenv("KVDB_LOG_DIR"); envLog != "" {
+		if config.Logging != nil {
+			config.Logging.Output = envLog
+		} else {
+			config.Logging = &LoggingConfig{
+				Output: envLog,
+			}
+		}
+
+		config.Logging.Output = envLog
+	}
+
+	return config, nil
 }
 
 func ParseConfig(input io.ReadCloser) (Config, error) {

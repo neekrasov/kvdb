@@ -6,6 +6,7 @@ import (
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestModels(t *testing.T) {
@@ -34,8 +35,12 @@ func TestModels(t *testing.T) {
 
 	})
 	t.Run("IsAdmin", func(t *testing.T) {
+		hashedPassword, err := bcrypt.GenerateFromPassword(
+			[]byte("password"), bcrypt.DefaultCost)
+		assert.NoError(t, err)
+
 		cfg := &config.RootConfig{Username: "admin", Password: "password"}
-		user := models.User{Username: "admin", Password: "password"}
+		user := models.User{Username: "admin", Password: string(hashedPassword)}
 		assert.True(t, user.IsAdmin(cfg))
 	})
 }

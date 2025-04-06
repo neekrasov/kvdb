@@ -67,8 +67,13 @@ func initReplica(
 		maxMessageSize = size
 	}
 
+	dataDir := walCfg.DataDir
+	if walCfg.DataDir == "" {
+		dataDir = defaultDataDir
+	}
+
 	segmentStorage, err := segment.NewFileSegmentStorage(
-		new(filesystem.LocalFileSystem), walCfg.DataDir)
+		new(filesystem.LocalFileSystem), dataDir)
 	if err != nil {
 		return nil, err
 	}

@@ -15,6 +15,7 @@ import (
 
 const (
 	defaultFlushingBatchTimeout = time.Duration(50)
+	defaultDataDir              = "/var/lib/kvdb"
 )
 
 func initWAL(cfg *config.WALConfig) (*wal.WAL, error) {
@@ -23,8 +24,13 @@ func initWAL(cfg *config.WALConfig) (*wal.WAL, error) {
 		return nil, nil
 	}
 
+	dataDir := cfg.DataDir
+	if cfg.DataDir == "" {
+		dataDir = defaultDataDir
+	}
+
 	segmentStorage, err := segment.NewFileSegmentStorage(
-		new(filesystem.LocalFileSystem), cfg.DataDir)
+		new(filesystem.LocalFileSystem), dataDir)
 	if err != nil {
 		return nil, err
 	}
