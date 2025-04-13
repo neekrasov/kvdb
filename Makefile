@@ -67,7 +67,8 @@ client: build-client
 	@echo "Starting client..."
 	@$(CLIENT_BIN) run \
 		--username $(user) \
-		--password $(pass)
+		--password $(pass) \
+		--address $(address) \
 
 .PHONY: clean
 clean:

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -36,6 +37,20 @@ type (
 	}
 )
 
+func buildCommandString(
+	cmdType compute.CommandType,
+	positionalArgs []string,
+	namedArgs map[string]string,
+) string {
+	parts := []string{cmdType.String()}
+	parts = append(parts, positionalArgs...)
+
+	for key, value := range namedArgs {
+		parts = append(parts, key, value)
+	}
+	return strings.Join(parts, " ")
+}
+
 // Config - holds the configuration settings for the KVDB client.
 type Config struct {
 	Username             string        `json:"username"`
@@ -47,6 +62,7 @@ type Config struct {
 	IdleTimeout          time.Duration `json:"idleTimeout"`
 	ReconnectBaseDelay   time.Duration `json:"reconnectBaseDelay"`
 	KeepAliveInterval    time.Duration `json:"keepAliveInterval"`
+	Namespace            string        `json:"namespace"`
 }
 
 // Client - represents a client for interacting with a KVDB server.
@@ -132,7 +148,7 @@ func (k *Client) connect() error {
 
 // auth - performs authentication with the server.
 func (k *Client) auth(ctx context.Context) error {
-	cmd := compute.CommandAUTH.Make(k.cfg.Username, k.cfg.Password)
+	cmd := buildCommandString(compute.CommandAUTH, []string{k.cfg.Username, k.cfg.Password}, nil)
 	res, err := k.client.Send(ctx, []byte(cmd))
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
@@ -215,7 +231,7 @@ func (k *Client) sendRetry(ctx context.Context, query string) (string, error) {
 	return strings.TrimLeft(val, " "), nil
 }
 
-// reconnect - attempts to reconnect with exponential backoff.
+// reconnect - attempts to reconnect with lineal backoff.
 func (k *Client) reconnect(ctx context.Context, attempt int) error {
 	delay := k.cfg.ReconnectBaseDelay * time.Duration(attempt)
 
@@ -242,78 +258,142 @@ func (k *Client) Raw(ctx context.Context, query string) (string, error) {
 }
 
 // Set - stores a value for a given key.
-func (k *Client) Set(ctx context.Context, key, value string) error {
-	var data string
-	if k.compressor != nil {
-		compressed, err := k.compressor.Compress([]byte(value))
-		if err != nil {
-			return err
-		}
+func (k *Client) Set(ctx context.Context, key, value string, opts ...Option) error {
+	options := applyOptions(opts)
+	processedValue := value
 
-		data = base64.StdEncoding.EncodeToString(compressed)
-	} else {
-		data = value
+	if options.compressor != nil {
+		compressed, err := options.compressor.Compress([]byte(value))
+		if err != nil {
+			return fmt.Errorf("failed to compress value for key '%s': %w", key, err)
+		}
+		processedValue = base64.StdEncoding.EncodeToString(compressed)
 	}
 
-	if _, err := k.sendRetry(ctx, compute.CommandSET.Make(key, data)); err != nil {
-		return fmt.Errorf("failed to set '%s': %w", key, err)
+	args := make(map[string]string)
+	if strings.TrimSpace(k.cfg.Namespace) != "" {
+		args[compute.NSArg] = k.cfg.Namespace
+	}
+	if options.namespace != "" {
+		args[compute.NSArg] = options.namespace
+	}
+	if options.ttl != nil {
+		args[compute.TTLArg] = options.ttl.String()
+	}
+
+	query := buildCommandString(compute.CommandSET, []string{key, processedValue}, args)
+	if _, err := k.sendRetry(ctx, query); err != nil {
+		return fmt.Errorf("failed to set key '%s': %w", key, err)
 	}
 
 	return nil
 }
 
 // Get - retrieves the value associated with a given key.
-func (k *Client) Get(ctx context.Context, key string) (string, error) {
-	response, err := k.sendRetry(ctx, compute.CommandGET.Make(key))
+func (k *Client) Get(ctx context.Context, key string, opts ...Option) (string, error) {
+	options := applyOptions(opts)
+
+	args := make(map[string]string)
+	if k.cfg.Namespace != "" {
+		args[compute.NSArg] = k.cfg.Namespace
+	}
+	if options.namespace != "" {
+		args[compute.NSArg] = options.namespace
+	}
+
+	query := buildCommandString(compute.CommandGET, []string{key}, args)
+	responsePayload, err := k.sendRetry(ctx, query)
 	if err != nil {
+		if strings.Contains(err.Error(), compute.ErrKeyNotFound.Error()) {
+			return "", compute.ErrKeyNotFound
+		}
+
 		return "", fmt.Errorf("failed to get key '%s': %w", key, err)
 	}
 
-	var value string
-	if k.compressor != nil {
-		compressedValue, err := base64.StdEncoding.DecodeString(
-			strings.TrimSpace(response))
+	if options.compressor != nil {
+		compressedValue, err := base64.StdEncoding.DecodeString(responsePayload)
 		if err != nil {
-			return "", fmt.Errorf("failed to decode base64: %w", err)
+			return "", fmt.Errorf("failed to decode base64 for key '%s': %w", key, err)
+		}
+		decompressedValue, err := options.compressor.Decompress(compressedValue)
+		if err != nil {
+			return "", fmt.Errorf("failed to decompress value for key '%s': %w", key, err)
 		}
 
-		decompressedValue, err := k.compressor.Decompress(compressedValue)
-		if err != nil {
-			return "", fmt.Errorf("failed to decompress: %w", err)
-		}
-		value = string(decompressedValue)
-	} else {
-		value = response
+		return string(decompressedValue), nil
 	}
 
-	return value, nil
+	return responsePayload, nil
 }
 
 // Del - removes a key and its value from the storage.
-func (k *Client) Del(ctx context.Context, key string) error {
-	if _, err := k.sendRetry(ctx, compute.CommandDEL.Make(key)); err != nil {
-		return fmt.Errorf("failed to del key '%s': %w", key, err)
+func (k *Client) Del(ctx context.Context, key string, opts ...Option) error {
+	options := applyOptions(opts)
+
+	args := make(map[string]string)
+	if k.cfg.Namespace != "" {
+		args[compute.NSArg] = k.cfg.Namespace
+	}
+	if options.namespace != "" {
+		args[compute.NSArg] = options.namespace
+	}
+
+	query := buildCommandString(compute.CommandDEL, []string{key}, args)
+	if _, err := k.sendRetry(ctx, query); err != nil {
+		return fmt.Errorf("failed to delete key '%s': %w", key, err)
 	}
 
 	return nil
 }
 
 // Watch - watches the key and returns the value if it has changed.
-func (k *Client) Watch(ctx context.Context, key string) error {
-	if _, err := k.sendRetry(ctx, compute.CommandWATCH.Make(key)); err != nil {
-		return fmt.Errorf("failed to watch key '%s': %w", key, err)
+func (k *Client) Watch(ctx context.Context, key string, opts ...Option) (string, error) {
+	options := applyOptions(opts)
+
+	args := make(map[string]string)
+	if k.cfg.Namespace != "" {
+		args[compute.NSArg] = k.cfg.Namespace
+	}
+	if options.namespace != "" {
+		args[compute.NSArg] = options.namespace
 	}
 
-	return nil
+	query := buildCommandString(compute.CommandWATCH, []string{key}, args)
+	responsePayload, err := k.sendRetry(ctx, query)
+	if err != nil {
+		return "", fmt.Errorf("failed to watch key '%s': %w", key, err)
+	}
+
+	if options.compressor != nil {
+		compressedValue, err := base64.StdEncoding.DecodeString(responsePayload)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode base64 for watched key '%s': %w", key, err)
+		}
+		decompressedValue, err := options.compressor.Decompress(compressedValue)
+		if err != nil {
+			return "", fmt.Errorf("failed to decompress value for watched key '%s': %w", key, err)
+		}
+
+		return string(decompressedValue), nil
+	}
+
+	return responsePayload, nil
 }
 
 // Stats - returns the collected database statistics.
-func (k *Client) Stats(ctx context.Context, key string) error {
-	if _, err := k.sendRetry(ctx, compute.CommandSTAT.Make()); err != nil {
-		return fmt.Errorf("failed to watch key '%s': %w", key, err)
+func (k *Client) Stats(ctx context.Context, key string) (*database.Stats, error) {
+	resp, err := k.sendRetry(ctx, compute.CommandSTAT.Make())
+	if err != nil {
+		return nil, fmt.Errorf("failed to watch key '%s': %w", key, err)
 	}
 
-	return nil
+	var stats database.Stats
+	if err := json.Unmarshal([]byte(resp), &stats); err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
 }
 
 // Close - closes all kvdb client connections.

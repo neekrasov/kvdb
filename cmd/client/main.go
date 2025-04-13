@@ -77,7 +77,7 @@ func main() {
 		},
 	}
 
-	runCmd.Flags().StringP("address", "a", "localhost:3223", "Address of the server")
+	runCmd.Flags().StringP("address", "a", "127.0.0.1:3223", "Address of the server")
 	runCmd.Flags().Duration("idle_timeout", 0, "Idle timeout for connection")
 	runCmd.Flags().Duration("keep_alive", time.Second*2, "Keep alive interval")
 	runCmd.Flags().String("compression", "", "Type for message compression (gzip, zstd, flate, bzip2)")

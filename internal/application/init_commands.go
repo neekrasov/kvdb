@@ -6,29 +6,75 @@ import (
 
 func initCommandTrie() *compute.TrieNode {
 	root := compute.NewTrieNode()
-	root.Insert(compute.CommandCREATEROLE, "create", "role")
-	root.Insert(compute.CommandCREATEUSER, "create", "user")
-	root.Insert(compute.CommandGETROLE, "get", "role")
-	root.Insert(compute.CommandGETUSER, "get", "user")
-	root.Insert(compute.CommandCREATEUSER, "delete", "user")
-	root.Insert(compute.CommandASSIGNROLE, "assign", "role")
-	root.Insert(compute.CommandDIVESTROLE, "divest", "role")
-	root.Insert(compute.CommandDELETEROLE, "delete", "role")
-	root.Insert(compute.CommandCREATENAMESPACE, "create", "ns")
-	root.Insert(compute.CommandDELETENAMESPACE, "delete", "ns")
-	root.Insert(compute.CommandSETNS, "set", "ns")
-	root.Insert(compute.CommandGET, "get")
-	root.Insert(compute.CommandSET, "set")
-	root.Insert(compute.CommandDEL, "del")
-	root.Insert(compute.CommandAUTH, "login")
-	root.Insert(compute.CommandUSERS, "users")
-	root.Insert(compute.CommandME, "me")
-	root.Insert(compute.CommandROLES, "roles")
-	root.Insert(compute.CommandNAMESPACES, "ns")
-	root.Insert(compute.CommandSESSIONS, "sessions")
-	root.Insert(compute.CommandHELP, "help")
-	root.Insert(compute.CommandWATCH, "watch")
-	root.Insert(compute.CommandSTAT, "stat")
+	root.Insert(compute.CommandSET, map[string]compute.CommandParam{
+		compute.KeyArg:   {Required: true, Positional: true, Position: 0},
+		compute.ValueArg: {Required: true, Positional: true, Position: 1},
+		compute.TTLArg:   {Required: false, Positional: false},
+		compute.NSArg:    {Required: false, Positional: false},
+	})
+	root.Insert(compute.CommandGET, map[string]compute.CommandParam{
+		compute.KeyArg: {Required: true, Positional: true, Position: 0},
+		compute.TTLArg: {Required: false, Positional: false},
+		compute.NSArg:  {Required: false, Positional: false},
+	})
+	root.Insert(compute.CommandDEL, map[string]compute.CommandParam{
+		compute.KeyArg: {Required: true, Positional: true, Position: 0},
+		compute.TTLArg: {Required: false, Positional: false},
+		compute.NSArg:  {Required: false, Positional: false},
+	})
+	root.Insert(compute.CommandAUTH, map[string]compute.CommandParam{
+		compute.UsernameArg: {Required: true, Positional: true, Position: 0},
+		compute.PasswordArg: {Required: true, Positional: true, Position: 1},
+	})
+	root.Insert(compute.CommandCREATEUSER, map[string]compute.CommandParam{
+		compute.UsernameArg: {Required: true, Positional: true, Position: 0},
+		compute.PasswordArg: {Required: true, Positional: true, Position: 1},
+	})
+	root.Insert(compute.CommandGETUSER, map[string]compute.CommandParam{
+		compute.UsernameArg: {Required: true, Positional: true, Position: 0},
+	})
+	root.Insert(compute.CommandDELETEUSER, map[string]compute.CommandParam{
+		compute.UsernameArg: {Required: true, Positional: true, Position: 0},
+	})
+	root.Insert(compute.CommandASSIGNROLE, map[string]compute.CommandParam{
+		compute.UsernameArg: {Required: true, Positional: true, Position: 0},
+		compute.RoleArg:     {Required: true, Positional: true, Position: 1},
+	})
+	root.Insert(compute.CommandDIVESTROLE, map[string]compute.CommandParam{
+		compute.UsernameArg: {Required: true, Positional: true, Position: 0},
+		compute.RoleArg:     {Required: true, Positional: true, Position: 1},
+	})
+	root.Insert(compute.CommandCREATEROLE, map[string]compute.CommandParam{
+		compute.RoleNameArg:    {Required: true, Positional: true, Position: 0},
+		compute.PermissionsArg: {Required: true, Positional: true, Position: 1},
+		compute.NamespaceArg:   {Required: true, Positional: true, Position: 2},
+	})
+	root.Insert(compute.CommandGETROLE, map[string]compute.CommandParam{
+		compute.RoleNameArg: {Required: true, Positional: true, Position: 0},
+	})
+	root.Insert(compute.CommandDELETEROLE, map[string]compute.CommandParam{
+		compute.RoleNameArg: {Required: true, Positional: true, Position: 0},
+	})
+	root.Insert(compute.CommandCREATENAMESPACE, map[string]compute.CommandParam{
+		compute.NamespaceArg: {Required: true, Positional: true, Position: 0},
+	})
+	root.Insert(compute.CommandDELETENAMESPACE, map[string]compute.CommandParam{
+		compute.NamespaceArg: {Required: true, Positional: true, Position: 0},
+	})
+	root.Insert(compute.CommandSETNS, map[string]compute.CommandParam{
+		compute.NamespaceArg: {Required: true, Positional: true, Position: 0},
+	})
+	root.Insert(compute.CommandUSERS, nil)
+	root.Insert(compute.CommandME, nil)
+	root.Insert(compute.CommandROLES, nil)
+	root.Insert(compute.CommandNAMESPACES, nil)
+	root.Insert(compute.CommandSESSIONS, nil)
+	root.Insert(compute.CommandHELP, nil)
+	root.Insert(compute.CommandWATCH, map[string]compute.CommandParam{
+		compute.KeyArg: {Required: true, Positional: true, Position: 0},
+		compute.NSArg:  {Required: false, Positional: false},
+	})
+	root.Insert(compute.CommandSTAT, nil)
 
 	return root
 }

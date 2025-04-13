@@ -94,7 +94,7 @@ func TestStorage(t *testing.T) {
 
 		err := store.Set(ttlCtx, key, value)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "invalid format fo ttl:")
+		require.ErrorContains(t, err, "invalid format to ttl:")
 		mockEngine.AssertExpectations(t)
 	})
 

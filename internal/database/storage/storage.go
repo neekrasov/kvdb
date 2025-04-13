@@ -121,7 +121,7 @@ func (s *Storage) Set(ctx context.Context, key, value string) error {
 	if ttlStr := ctxutil.ExtractTTL(ctx); ttlStr != "" {
 		duration, err := time.ParseDuration(ttlStr)
 		if err != nil {
-			return fmt.Errorf("invalid format fo ttl: %w", err)
+			return fmt.Errorf("invalid format to ttl: %w", err)
 		}
 
 		ttl = time.Now().Unix() + (duration.Nanoseconds() / 1e9)

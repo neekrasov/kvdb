@@ -2,11 +2,7 @@ package compute
 
 import (
 	"errors"
-	"fmt"
 	"strings"
-
-	"github.com/neekrasov/kvdb/pkg/logger"
-	"go.uber.org/zap"
 )
 
 const (
@@ -14,9 +10,9 @@ const (
 Available commands for admins:
 
   Operation commands:
-    get <key> - Retrieve the value associated with a key.
-    set <key> <value> [ttl] - Store a value for a given key.
-    del <key> - Remove a key and its value from the storage.
+    get <key> [ns namespace] - Retrieve the value associated with a key.
+    set <key> <value> [ttl duration] [ns namespace] - Store a value for a given key. Example TTL: 10s, 5m, 1h.
+    del <key> [ns namespace] - Remove a key and its value from the storage.
 
   User commands:
 	login <username> <password> - Authenticate a user.
@@ -44,7 +40,7 @@ Available commands for admins:
     help - Display this help message.
 
   Other commands:
-    watch <key> - Watches the key and returns the value if it has changed.
+    watch <key> [ns namespace] - Watches the key and returns the value if it has changed.
     stat - Displays database statistics.
 `
 
@@ -52,9 +48,9 @@ Available commands for admins:
 Available commands for users:
 
   Operation commands:
-    get <key> - Retrieve the value associated with a key.
-    set <key> <value> [ttl] - Store a value for a given key.
-    del <key> - Remove a key and its value from the storage.
+    get <key> [ns namespace] - Retrieve the value associated with a key.
+    set <key> <value> [ttl duration] [ns namespace] - Store a value for a given key.
+    del <key> [ns namespace] - Remove a key and its value from the storage.
 
   User commands:
     login <username> <password> - Authenticate a user.
@@ -68,7 +64,7 @@ Available commands for users:
     help - Display this help message.
 
   Other commands:
-    watch <key> - Watches the key and returns the value if it has changed.
+    watch <key> [ns namespace] - Watches the key and returns the value if it has changed.
 `
 )
 
@@ -80,6 +76,19 @@ const (
 	SetCommandID
 	GetCommandID
 	DelCommandID
+)
+
+const (
+	KeyArg         = "key"
+	ValueArg       = "value"
+	TTLArg         = "ttl"
+	NSArg          = "ns"
+	UsernameArg    = "username"
+	PasswordArg    = "password"
+	RoleArg        = "role"
+	RoleNameArg    = "role_name"
+	PermissionsArg = "permissions"
+	NamespaceArg   = "namespace"
 )
 
 var (
@@ -148,63 +157,24 @@ func (cmd CommandType) Make(args ...string) string {
 	return cmd.String() + " " + strings.Join(args, " ")
 }
 
+// Split - split command by space.
+func (cmd CommandType) Split(args ...string) []string {
+	return strings.Split(cmd.String(), " ")
+}
+
 // Command - represents a user command with a type and its arguments.
 type Command struct {
-	Type CommandType // The type of the command (GET, SET, DEL).
-	Args []string    // The arguments associated with the command.
+	Type CommandType       // The type of the command (GET, SET, DEL).
+	Args map[string]string // The arguments associated with the command.
 }
 
-// NewCommand - creates a new instance of Command and validates it.
-func NewCommand(commandType CommandType, args []string) (*Command, error) {
-	zapargs := []zap.Field{
-		zap.Stringer("cmd_type", commandType),
-		zap.Strings("args", args),
-	}
-
-	cmd := &Command{Type: commandType, Args: args}
-	if err := cmd.Validate(); err != nil {
-		zapargs = append(zapargs, zap.Error(err))
-		logger.Debug("invalid command", zapargs...)
-		return nil, err
-	}
-
-	logger.Debug("command successfully created", zapargs...)
-
-	return cmd, nil
+type CommandParam struct {
+	Required   bool
+	Positional bool
+	Position   int
 }
 
-// Validate - checks if the command type and arguments are valid.
-func (cmd *Command) Validate() error {
-	switch cmd.Type {
-	case CommandGET, CommandDEL, CommandDELETEROLE,
-		CommandCREATENAMESPACE, CommandDELETENAMESPACE,
-		CommandSETNS, CommandDELETEUSER, CommandGETUSER,
-		CommandGETROLE, CommandWATCH:
-		if len(cmd.Args) != 1 {
-			return fmt.Errorf("%w: %s command requires exactly 1 argument", ErrInvalidCommand, cmd.Type)
-		}
-	case CommandAUTH, CommandASSIGNROLE,
-		CommandCREATEUSER, CommandDIVESTROLE:
-		if len(cmd.Args) != 2 {
-			return fmt.Errorf("%w: %s command requires exactly 2 arguments", ErrInvalidCommand, cmd.Type)
-		}
-	case CommandSET: // (key, value, [ttl])
-		if len(cmd.Args) < 2 || len(cmd.Args) > 3 {
-			return fmt.Errorf("%w: %s command requires 2 or 3 arguments", ErrInvalidCommand, cmd.Type)
-		}
-	case CommandCREATEROLE:
-		if len(cmd.Args) != 3 {
-			return fmt.Errorf("%w: %s command requires exactly 3 arguments", ErrInvalidCommand, cmd.Type)
-		}
-	case CommandUSERS, CommandME, CommandROLES,
-		CommandNAMESPACES, CommandHELP, CommandSESSIONS,
-		CommandSTAT:
-		if len(cmd.Args) > 0 {
-			return fmt.Errorf("%w: command '%s' does not accept arguments", ErrInvalidCommand, cmd.Type)
-		}
-	default:
-		return fmt.Errorf("%w: unrecognized command", ErrInvalidCommand)
-	}
-
-	return nil
+// NewCommand - creates a new instance of Command.
+func NewCommand(commandType CommandType, args map[string]string) (*Command, error) {
+	return &Command{Type: commandType, Args: args}, nil
 }

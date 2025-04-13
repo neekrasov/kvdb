@@ -95,10 +95,12 @@ type RolesStorage interface {
 	Append(ctx context.Context, role string) ([]string, error)
 }
 
+type Args = map[string]string
+
 // CommandHandler - used to execute specific actions based on user input.
 type CommandHandler struct {
 	// Func - function to execute for the models.
-	Func func(context.Context, *models.User, []string) string
+	Func func(context.Context, *models.User, Args) string
 	// AdminOnly - indicates whether the models can only be executed by an admin.
 	AdminOnly bool
 }
@@ -157,11 +159,11 @@ func New(
 		compute.CommandGETUSER:         {Func: db.getUser, AdminOnly: true},
 		compute.CommandCREATENAMESPACE: {Func: db.createNS, AdminOnly: true},
 		compute.CommandDELETENAMESPACE: {Func: db.deleteNS, AdminOnly: true},
-		compute.CommandNAMESPACES:      {Func: db.ns, AdminOnly: true},
 		compute.CommandSESSIONS:        {Func: db.listSessions, AdminOnly: true},
 		compute.CommandDELETEUSER:      {Func: db.deleteUser, AdminOnly: true},
 		compute.CommandDIVESTROLE:      {Func: db.divestRole, AdminOnly: true},
 		compute.CommandSTAT:            {Func: db.stat, AdminOnly: true},
+		compute.CommandNAMESPACES:      {Func: db.ns},
 		compute.CommandHELP:            {Func: db.help},
 		compute.CommandSETNS:           {Func: db.setNamespace},
 		compute.CommandME:              {Func: db.me},

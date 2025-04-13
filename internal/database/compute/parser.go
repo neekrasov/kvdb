@@ -20,6 +20,7 @@ func NewParser(trie *TrieNode) *Parser {
 
 // Parse - converts the query string into a Command or returns an error for invalid syntax.
 func (p *Parser) Parse(query string) (*Command, error) {
+	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, fmt.Errorf("%w: query cannot be empty", ErrInvalidSyntax)
 	}
@@ -29,7 +30,14 @@ func (p *Parser) Parse(query string) (*Command, error) {
 		return nil, fmt.Errorf("%w: query cannot be empty", ErrInvalidSyntax)
 	}
 
-	logger.Debug("parsed tokens", zap.Strings("tokens", tokens))
-	commandType, args := p.trie.Search(tokens)
+	commandType, args, err := p.trie.Search(tokens)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debug("command successfully created",
+		zap.Stringer("cmd_type", commandType),
+		zap.Any("args", args))
+
 	return NewCommand(commandType, args)
 }

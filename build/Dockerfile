@@ -13,7 +13,7 @@ ARG GIT_HASH
 
 RUN make build-server VERSION=$VERSION BUILD_TIME="$BUILD_TIME" GIT_HASH=$GIT_HASH
 
-FROM alpine:3.19
+FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata su-exec
 
