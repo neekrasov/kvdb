@@ -5,26 +5,35 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/neekrasov/kvdb/internal/config"
 	"github.com/neekrasov/kvdb/internal/database/compute"
 	"github.com/neekrasov/kvdb/internal/database/identity"
 	"github.com/neekrasov/kvdb/internal/database/identity/models"
+	"github.com/neekrasov/kvdb/internal/database/storage"
 	dbMock "github.com/neekrasov/kvdb/internal/mocks/database"
 	"github.com/neekrasov/kvdb/pkg/logger"
+	pkgsync "github.com/neekrasov/kvdb/pkg/sync"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestDatabase_HandleQuery(t *testing.T) {
 	t.Parallel()
 	logger.MockLogger()
 
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte("password"), bcrypt.DefaultCost)
+	assert.NoError(t, err)
+
 	sessionID := "test"
 	adminSession := &models.Session{
 		User: &models.User{
 			Username: "admin",
+			Password: string(hashedPassword),
 			ActiveRole: models.Role{
 				Get:       true,
 				Set:       true,
@@ -34,11 +43,25 @@ func TestDatabase_HandleQuery(t *testing.T) {
 		},
 	}
 
+	userActiveRole := models.Role{
+		Name:      "role1",
+		Namespace: "default", Get: true,
+	}
+
+	userSession := &models.Session{
+		User: &models.User{
+			Username:   "user",
+			Roles:      []string{"role1"},
+			ActiveRole: userActiveRole,
+		},
+	}
+
 	tests := []struct {
 		name         string
 		query        string
 		parseErr     error
 		expected     string
+		contains     string
 		prepareMocks func(
 			p *dbMock.Parser, s *dbMock.Storage, us *dbMock.UsersStorage,
 			ns *dbMock.NamespacesStorage, rs *dbMock.RolesStorage,
@@ -271,7 +294,7 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				rs.On("Get", mock.Anything, "role").Return(nil, identity.ErrRoleNotFound).Once()
 				rs.On("Save", mock.Anything, mock.MatchedBy(func(role *models.Role) bool {
 					return role.Name == "role" && role.Namespace == "namespace" &&
-						role.Get && role.Set && role.Del // Check parsed permissions
+						role.Get && role.Set && role.Del
 				})).Return(nil).Once()
 				rs.On("Append", mock.Anything, "role").Return(nil, nil).Once()
 			},
@@ -293,7 +316,8 @@ func TestDatabase_HandleQuery(t *testing.T) {
 							compute.RoleNameArg: "role",
 						},
 					}, nil).Once()
-				us.On("ListUsernames", mock.Anything).Return([]string{}, nil).Once()
+				us.On("ListUsernames", mock.Anything).Return([]string{"test"}, nil).Once()
+				us.On("Get", mock.Anything, "test").Return(&models.User{Username: "test", Roles: []string{}}, nil).Once()
 				rs.On("Delete", mock.Anything, "role").Return(nil).Once()
 			},
 		},
@@ -394,6 +418,221 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
 				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
 			) {
+				ss.On("Get", sessionID).Return(userSession, nil).Once()
+				p.On("Parse", compute.CommandSETNS.Make("namespace")).Return(
+					&compute.Command{
+						Type: compute.CommandSETNS,
+						Args: map[string]string{
+							compute.NamespaceArg: "namespace",
+						},
+					}, nil).Once()
+				ns.On("Exists", mock.Anything, "namespace").Return(true).Once()
+				rs.On("Get", mock.Anything, "role1").Return(&models.Role{
+					Name: "role1", Namespace: "namespace", Get: true, Set: true,
+				}, nil).Once()
+			},
+		},
+		{
+			name:     "delete user command",
+			query:    compute.CommandDELETEUSER.Make("username"),
+			expected: okPrefix,
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandDELETEUSER.Make("username")).Return(
+					&compute.Command{
+						Type: compute.CommandDELETEUSER,
+						Args: map[string]string{
+							compute.UsernameArg: "username",
+						},
+					}, nil).Once()
+				us.On("Delete", mock.Anything, "username").Return(nil).Once()
+				us.On("Remove", mock.Anything, "admin").Return(nil, nil).Once()
+			},
+		},
+		{
+			name:     "divest role command",
+			query:    compute.CommandDIVESTROLE.Make("username", "role"),
+			expected: okPrefix,
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandDIVESTROLE.Make("username", "role")).Return(
+					&compute.Command{
+						Type: compute.CommandDIVESTROLE,
+						Args: map[string]string{
+							compute.UsernameArg: "username",
+							compute.RoleArg:     "role",
+						},
+					}, nil).Once()
+				us.On("AssignRole", mock.Anything, "username", "role").Return(nil).Once()
+			},
+		},
+		{
+			name:     "get user command",
+			query:    compute.CommandGETUSER.Make("username"),
+			expected: okPrefix + ` {"username":"username","roles":["role1"],"role":{"name":"","get":false,"set":false,"del":false,"namespace":""}}`,
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandGETUSER.Make("username")).Return(
+					&compute.Command{
+						Type: compute.CommandGETUSER,
+						Args: map[string]string{
+							compute.UsernameArg: "username",
+						},
+					}, nil).Once()
+				us.On("Get", mock.Anything, "username").Return(&models.User{
+					Username: "username",
+					Roles:    []string{"role1"},
+				}, nil).Once()
+			},
+		},
+		{
+			name:     "get role command",
+			query:    compute.CommandGETROLE.Make("role"),
+			expected: okPrefix + ` {"name":"role","get":true,"set":true,"del":true,"namespace":"default"}`,
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandGETROLE.Make("role")).Return(
+					&compute.Command{
+						Type: compute.CommandGETROLE,
+						Args: map[string]string{
+							compute.RoleNameArg: "role",
+						},
+					}, nil).Once()
+				rs.On("Get", mock.Anything, "role").Return(&models.Role{
+					Name:      "role",
+					Namespace: "default",
+					Get:       true,
+					Set:       true,
+					Del:       true,
+				}, nil).Once()
+			},
+		},
+		{
+			name:     "watch command success",
+			query:    compute.CommandWATCH.Make("key"),
+			expected: okPrefix + " new_value",
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandWATCH.Make("key")).Return(
+					&compute.Command{
+						Type: compute.CommandWATCH,
+						Args: map[string]string{
+							compute.KeyArg: "key",
+						},
+					}, nil).Once()
+				future := pkgsync.NewFuture[string]()
+				go future.Set("new_value")
+
+				s.On("Watch", mock.Anything, "default:key").Return(future).Once()
+			},
+		},
+		{
+			name:     "stat command success",
+			query:    compute.CommandSTAT.String(),
+			contains: `total_commands":100,"get_commands":50,"set_commands":30,"del_commands":20,"total_keys":1000,"expired_keys":50,"active_sessions":1,"total_namespaces":2,"total_roles":3,"total_users":4}`,
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandSTAT.String()).Return(
+					&compute.Command{
+						Type: compute.CommandSTAT,
+						Args: map[string]string{},
+					}, nil).Once()
+				stats := &storage.Stats{}
+				stats.TotalCommands.Store(100)
+				stats.GetCommands.Store(50)
+				stats.SetCommands.Store(30)
+				stats.DelCommands.Store(20)
+				stats.TotalKeys.Store(1000)
+				stats.ExpiredKeys.Store(50)
+				stats.StartTime, _ = time.Parse(time.RFC3339Nano, "2025-04-14T00:23:29.042785+03:00")
+				s.On("Stats").Return(stats, nil).Once()
+				ns.On("List", mock.Anything).Return([]string{"ns1", "ns2"}, nil).Once()
+				rs.On("List", mock.Anything).Return([]string{"r1", "r2", "r3"}, nil).Once()
+				us.On("ListUsernames", mock.Anything).Return([]string{"u1", "u2", "u3", "u4"}, nil).Once()
+				ss.On("List").Return([]models.Session{
+					{User: nil, ExpiresAt: time.Now(), CreatedAt: time.Now()},
+				}).Once()
+			},
+		},
+		{
+			name:     "list sessions command",
+			query:    compute.CommandSESSIONS.String(),
+			expected: okPrefix + ` [{"user":null,"expires_at":"2025-04-14T00:23:29.042785+03:00","created_at":"2025-04-14T00:23:29.042785+03:00"}]`,
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandSESSIONS.String()).Return(
+					&compute.Command{
+						Type: compute.CommandSESSIONS,
+						Args: map[string]string{},
+					}, nil).Once()
+
+				expiresAt, _ := time.Parse(time.RFC3339Nano, "2025-04-14T00:23:29.042785+03:00")
+				createdAt, _ := time.Parse(time.RFC3339Nano, "2025-04-14T00:23:29.042785+03:00")
+
+				ss.On("List").Return([]models.Session{
+					{User: nil, ExpiresAt: expiresAt, CreatedAt: createdAt},
+				}).Once()
+			},
+		},
+		{
+			name:     "namespace not found error",
+			query:    compute.CommandSET.Make("key", "value") + " NS notfound",
+			expected: fmt.Sprintf("%s namespace not found", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandSET.Make("key", "value")+" NS notfound").Return(
+					&compute.Command{
+						Type: compute.CommandSET,
+						Args: map[string]string{
+							compute.KeyArg:   "key",
+							compute.ValueArg: "value",
+							compute.NSArg:    "notfound",
+						},
+					}, nil).Once()
+				ns.On("Exists", mock.Anything, "notfound").Return(false).Once()
+			},
+		},
+		{
+			name:     "role not found error when setting namespace",
+			query:    compute.CommandSETNS.Make("namespace"),
+			expected: fmt.Sprintf("%s permission denied", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
 				userSession := &models.Session{
 					User: &models.User{
 						Username: "user",
@@ -412,9 +651,269 @@ func TestDatabase_HandleQuery(t *testing.T) {
 						},
 					}, nil).Once()
 				ns.On("Exists", mock.Anything, "namespace").Return(true).Once()
+				rs.On("Get", mock.Anything, "role1").Return(nil, identity.ErrRoleNotFound).Once()
+			},
+		},
+		{
+			name:     "empty result for users command",
+			query:    compute.CommandUSERS.String(),
+			expected: fmt.Sprintf("%s empty result", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandUSERS.String()).Return(
+					&compute.Command{
+						Type: compute.CommandUSERS,
+						Args: map[string]string{},
+					}, nil).Once()
+				us.On("ListUsernames", mock.Anything).Return([]string{}, nil).Once()
+			},
+		},
+		{
+			name:     "error listing users",
+			query:    compute.CommandUSERS.String(),
+			expected: fmt.Sprintf("%s internal error", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandUSERS.String()).Return(
+					&compute.Command{
+						Type: compute.CommandUSERS,
+						Args: map[string]string{},
+					}, nil).Once()
+				us.On("ListUsernames", mock.Anything).Return(nil, errors.New("internal error")).Once()
+			},
+		},
+		{
+			name:     "error creating namespace",
+			query:    compute.CommandCREATENAMESPACE.Make("namespace"),
+			expected: fmt.Sprintf("%s internal error", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandCREATENAMESPACE.Make("namespace")).Return(
+					&compute.Command{
+						Type: compute.CommandCREATENAMESPACE,
+						Args: map[string]string{
+							compute.NamespaceArg: "namespace",
+						},
+					}, nil).Once()
+				ns.On("Save", mock.Anything, "namespace").Return(errors.New("internal error")).Once()
+			},
+		},
+		{
+			name:     "error deleting namespace",
+			query:    compute.CommandDELETENAMESPACE.Make("namespace"),
+			expected: fmt.Sprintf("%s internal error", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				rs.On("List", mock.Anything).Return(nil, nil)
+				p.On("Parse", compute.CommandDELETENAMESPACE.Make("namespace")).Return(
+					&compute.Command{
+						Type: compute.CommandDELETENAMESPACE,
+						Args: map[string]string{
+							compute.NamespaceArg: "namespace",
+						},
+					}, nil).Once()
+				ns.On("Delete", mock.Anything, "namespace").Return(errors.New("internal error")).Once()
+			},
+		},
+		{
+			name:     "namespace in use when deleting",
+			query:    compute.CommandDELETENAMESPACE.Make("namespace"),
+			expected: fmt.Sprintf("%s this namespace is still used by the role role1", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				rs.On("List", mock.Anything).Return([]string{"role1"}, nil)
+				p.On("Parse", compute.CommandDELETENAMESPACE.Make("namespace")).Return(
+					&compute.Command{
+						Type: compute.CommandDELETENAMESPACE,
+						Args: map[string]string{
+							compute.NamespaceArg: "namespace",
+						},
+					}, nil).Once()
 				rs.On("Get", mock.Anything, "role1").Return(&models.Role{
-					Name: "role1", Namespace: "namespace", Get: true, Set: true,
+					Name: "role1", Namespace: "namespace",
 				}, nil).Once()
+			},
+		},
+		{
+			name:     "successful listing namespaces",
+			query:    compute.CommandNAMESPACES.String(),
+			expected: okPrefix + ` ["ns1","ns2","ns3"]`,
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandNAMESPACES.String()).Return(
+					&compute.Command{
+						Type: compute.CommandNAMESPACES,
+						Args: map[string]string{},
+					}, nil).Once()
+				ns.On("List", mock.Anything).Return([]string{"ns1", "ns2", "ns3"}, nil).Once()
+			},
+		},
+		{
+			name:     "successful listing namespaces",
+			query:    compute.CommandNAMESPACES.String(),
+			expected: okPrefix + ` ["default"]`,
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(userSession, nil).Once()
+				p.On("Parse", compute.CommandNAMESPACES.String()).Return(
+					&compute.Command{
+						Type: compute.CommandNAMESPACES,
+						Args: map[string]string{},
+					}, nil).Once()
+				rs.On("Get", mock.Anything, "role1").Return(&userActiveRole, nil).Once()
+			},
+		},
+		{
+			name:     "error listing namespaces",
+			query:    compute.CommandNAMESPACES.String(),
+			expected: fmt.Sprintf("%s internal error", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandNAMESPACES.String()).Return(
+					&compute.Command{
+						Type: compute.CommandNAMESPACES,
+						Args: map[string]string{},
+					}, nil).Once()
+				ns.On("List", mock.Anything).Return(nil, errors.New("internal error")).Once()
+			},
+		},
+		{
+			name:     "error creating user",
+			query:    compute.CommandCREATEUSER.Make("username", "password"),
+			expected: fmt.Sprintf("%s internal error", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandCREATEUSER.Make("username", "password")).Return(
+					&compute.Command{
+						Type: compute.CommandCREATEUSER,
+						Args: map[string]string{
+							compute.UsernameArg: "username",
+							compute.PasswordArg: "password",
+						},
+					}, nil).Once()
+				us.On("Create", mock.Anything, "username", "password").Return(nil, errors.New("internal error")).Once()
+			},
+		},
+		{
+			name:     "error assigning role",
+			query:    compute.CommandASSIGNROLE.Make("username", "role"),
+			expected: fmt.Sprintf("%s internal error", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandASSIGNROLE.Make("username", "role")).Return(
+					&compute.Command{
+						Type: compute.CommandASSIGNROLE,
+						Args: map[string]string{
+							compute.UsernameArg: "username",
+							compute.RoleArg:     "role",
+						},
+					}, nil).Once()
+				us.On("AssignRole", mock.Anything, "username", "role").Return(errors.New("internal error")).Once()
+			},
+		},
+		{
+			name:     "error getting user",
+			query:    compute.CommandGETUSER.Make("username"),
+			expected: fmt.Sprintf("%s internal error", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandGETUSER.Make("username")).Return(
+					&compute.Command{
+						Type: compute.CommandGETUSER,
+						Args: map[string]string{
+							compute.UsernameArg: "username",
+						},
+					}, nil).Once()
+				us.On("Get", mock.Anything, "username").Return(nil, errors.New("internal error")).Once()
+			},
+		},
+		{
+			name:     "getting admin help",
+			query:    compute.CommandHELP.Make(),
+			expected: fmt.Sprintf("%s %s", okPrefix, compute.AdminHelpText),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(adminSession, nil).Once()
+				p.On("Parse", compute.CommandHELP.Make()).Return(
+					&compute.Command{
+						Type: compute.CommandHELP,
+						Args: map[string]string{},
+					}, nil).Once()
+			},
+		},
+		{
+			name:     "getting user help",
+			query:    compute.CommandHELP.Make(),
+			expected: fmt.Sprintf("%s %s", okPrefix, compute.UserHelpText),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(userSession, nil).Once()
+				p.On("Parse", compute.CommandHELP.Make()).Return(
+					&compute.Command{
+						Type: compute.CommandHELP,
+						Args: map[string]string{},
+					}, nil).Once()
+			},
+		},
+		{
+			name:     "error getting current session",
+			query:    compute.CommandHELP.Make(),
+			expected: fmt.Sprintf("%s get current session failed: test", errPrefix),
+			prepareMocks: func(
+				p *dbMock.Parser, s *dbMock.Storage,
+				us *dbMock.UsersStorage, ns *dbMock.NamespacesStorage,
+				rs *dbMock.RolesStorage, ss *dbMock.SessionStorage,
+			) {
+				ss.On("Get", sessionID).Return(nil, errors.New("test")).Once()
 			},
 		},
 	}
@@ -442,11 +941,15 @@ func TestDatabase_HandleQuery(t *testing.T) {
 				mockNamespaceStorage,
 				mockRolesStorage,
 				mockSessionStorage,
-				&config.RootConfig{Username: "admin"},
+				&config.RootConfig{Username: "admin", Password: "password"},
 			)
 
 			result := db.HandleQuery(ctx, sessionID, tt.query)
-			assert.Equal(t, tt.expected, result)
+			if tt.expected == "" {
+				assert.Contains(t, result, tt.contains)
+			} else {
+				assert.Equal(t, tt.expected, result)
+			}
 
 			mockParser.AssertExpectations(t)
 			mockStorage.AssertExpectations(t)

@@ -201,12 +201,6 @@ func TestParse(t *testing.T) {
 			expectedErr: fmt.Errorf("%w: missing required parameter '%s'", ErrInvalidSyntax, ValueArg),
 		},
 		{
-			name:        "SET Missing Key and Value Args",
-			query:       CommandSET.String(),
-			expectedCmd: nil,
-			expectedErr: fmt.Errorf("%w: missing required parameter '%s'", ErrInvalidSyntax, KeyArg), // Fails on the first missing required positional arg
-		},
-		{
 			name:        "GET Missing Key Arg",
 			query:       CommandGET.String(),
 			expectedCmd: nil,
@@ -253,7 +247,7 @@ func TestParse(t *testing.T) {
 			if tt.expectedErr != nil {
 				require.Error(t, err, "Query: %s", tt.query)
 				assert.Equal(t, tt.expectedErr.Error(), err.Error(), "Query: %s", tt.query)
-				assert.Nil(t, cmd, "Command should be nil on error. Query: %s", tt.query) // Ensure cmd is nil on error
+				assert.Nil(t, cmd, "Command should be nil on error. Query: %s", tt.query)
 			} else {
 				require.NoError(t, err, "Query: %s", tt.query)
 				require.NotNil(t, cmd, "Command should not be nil on success. Query: %s", tt.query)

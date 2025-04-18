@@ -53,14 +53,21 @@ func (s *UsersStorage) Authenticate(ctx context.Context, username, password stri
 func (s *UsersStorage) AssignRole(ctx context.Context, username string, role string) error {
 	userKey := storage.MakeKey(models.SystemUserNameSpace, username)
 	userString, err := s.storage.Get(ctx, userKey)
-	if err != nil && errors.Is(err, storage.ErrKeyNotFound) {
-		return ErrUserNotFound
+	if err != nil {
+		if errors.Is(err, storage.ErrKeyNotFound) {
+			return ErrUserNotFound
+		}
+
+		return err
 	}
 
 	roleKey := storage.MakeKey(models.SystemRoleNameSpace, role)
-	_, err = s.storage.Get(ctx, roleKey)
-	if err != nil && errors.Is(err, storage.ErrKeyNotFound) {
-		return ErrRoleNotFound
+	if _, err = s.storage.Get(ctx, roleKey); err != nil {
+		if errors.Is(err, storage.ErrKeyNotFound) {
+			return ErrRoleNotFound
+		}
+
+		return err
 	}
 
 	var user models.User
@@ -86,14 +93,21 @@ func (s *UsersStorage) AssignRole(ctx context.Context, username string, role str
 func (s *UsersStorage) DivestRole(ctx context.Context, username string, role string) error {
 	userKey := storage.MakeKey(models.SystemUserNameSpace, username)
 	userString, err := s.storage.Get(ctx, userKey)
-	if err != nil && errors.Is(err, storage.ErrKeyNotFound) {
-		return ErrUserNotFound
+	if err != nil {
+		if errors.Is(err, storage.ErrKeyNotFound) {
+			return ErrUserNotFound
+		}
+
+		return err
 	}
 
 	roleKey := storage.MakeKey(models.SystemRoleNameSpace, role)
-	_, err = s.storage.Get(ctx, roleKey)
-	if err != nil && errors.Is(err, storage.ErrKeyNotFound) {
-		return ErrRoleNotFound
+	if _, err = s.storage.Get(ctx, roleKey); err != nil {
+		if errors.Is(err, storage.ErrKeyNotFound) {
+			return ErrRoleNotFound
+		}
+
+		return err
 	}
 
 	var user models.User
@@ -107,6 +121,10 @@ func (s *UsersStorage) DivestRole(ctx context.Context, username string, role str
 			index = i
 			break
 		}
+	}
+
+	if index == -1 {
+		return nil
 	}
 
 	user.Roles[index] = user.Roles[len(user.Roles)-1]
@@ -253,9 +271,13 @@ func (s *UsersStorage) Remove(ctx context.Context, user string) ([]string, error
 			break
 		}
 	}
-	users[index] = users[len(users)-1]
 
-	usersBytes, err := gob.Encode(users[:len(users)-1])
+	if index == -1 {
+		return users, nil
+	}
+
+	users = append(users[:index], users[index+1:]...)
+	usersBytes, err := gob.Encode(users)
 	if err != nil {
 		return users, err
 	}

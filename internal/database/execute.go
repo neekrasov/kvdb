@@ -62,7 +62,6 @@ func (db *Database) HandleQuery(ctx context.Context, sessionID string, query str
 		return WrapError(ErrPermissionDenied)
 	}
 
-	oldUsr := session.User
 	ctx = ctxutil.InjectSessionID(ctx, sessionID)
 	result := handler.Func(ctx, session.User, cmd.Args)
 	logger.Info("operation executed",
@@ -71,17 +70,6 @@ func (db *Database) HandleQuery(ctx context.Context, sessionID string, query str
 		zap.String("result", result),
 		zap.Bool("error", IsError(result)),
 		zap.String("session", sessionID))
-
-	if oldUsr != session.User {
-		err := db.userStorage.SaveRaw(ctx, session.User)
-		logger.Debug(
-			"save changed user failed",
-			zap.Any("old_user", oldUsr),
-			zap.Any("new_user", session.User),
-			zap.String("session", sessionID),
-			zap.Error(err),
-		)
-	}
 
 	return result
 
@@ -216,37 +204,32 @@ func (db *Database) listSessions(ctx context.Context, _ *models.User, _ Args) st
 
 // ns - executes the ns command to list namespaces.
 func (db *Database) ns(ctx context.Context, user *models.User, _ Args) string {
-	namepaces, err := db.namespaceStorage.List(ctx)
-	if err != nil {
-		return WrapError(err)
+	var nsList []string
+	if user.IsAdmin(db.cfg) {
+		namepaces, err := db.namespaceStorage.List(ctx)
+		if err != nil {
+			return WrapError(err)
+		}
+
+		nsList = namepaces
+	} else {
+		namepaces := make([]string, 0, len(user.Roles))
+		for _, roleName := range user.Roles {
+			role, err := db.rolesStorage.Get(ctx, roleName)
+			if err != nil {
+				continue
+			}
+
+			namepaces = append(namepaces, role.Namespace)
+		}
+
+		nsList = namepaces
 	}
 
-	var res []byte
-	if user.IsAdmin(db.cfg) {
-		// TODO: need to optimize
-		res, err = json.Marshal(namepaces)
-		if err != nil {
-			return WrapError(err)
-		}
-	} else {
-		userNamespaces := make([]string, 0, len(user.Roles))
-		for _, namespace := range namepaces {
-			for _, roleName := range user.Roles {
-				role, err := db.rolesStorage.Get(ctx, roleName)
-				if err != nil {
-					continue
-				}
-				if role.Namespace == namespace {
-					userNamespaces = append(userNamespaces, role.Namespace)
-				}
-			}
-		}
-
-		// TODO: need to optimize
-		res, err = json.Marshal(userNamespaces)
-		if err != nil {
-			return WrapError(err)
-		}
+	// TODO: need to optimize
+	res, err := json.Marshal(nsList)
+	if err != nil {
+		return WrapError(err)
 	}
 
 	return WrapOK(string(res))
