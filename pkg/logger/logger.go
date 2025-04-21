@@ -2,6 +2,7 @@ package logger
 
 import (
 	"os"
+	"path"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -12,7 +13,7 @@ import (
 var (
 	logger *zap.Logger
 
-	defaultLoggerFilename        = "/var/log/kvdb/server.log"
+	defaultLoggerFilename        = "kvdb.log"
 	defaultLoggerMaxSizeMb       = 10
 	defaultLoggerMaxBackupsCount = 3
 	defaultLoggerMaxAgeDays      = 7
@@ -73,30 +74,28 @@ func getAtomicLevel(logLevel string) zap.AtomicLevel {
 }
 
 func getCore(level zap.AtomicLevel, output string) zapcore.Core {
-	if output == "" {
-		output = defaultLoggerFilename
+	var tee []zapcore.Core
+	if output != "" {
+		productionCfg := zap.NewProductionEncoderConfig()
+		productionCfg.TimeKey = "timestamp"
+		productionCfg.EncodeTime = zapcore.ISO8601TimeEncoder
+
+		file := zapcore.AddSync(
+			&lumberjack.Logger{
+				Filename:   path.Join(output, defaultLoggerFilename),
+				MaxSize:    defaultLoggerMaxSizeMb,
+				MaxBackups: defaultLoggerMaxBackupsCount,
+				MaxAge:     defaultLoggerMaxAgeDays,
+			})
+		fileEncoder := zapcore.NewJSONEncoder(productionCfg)
+		tee = append(tee, zapcore.NewCore(fileEncoder, file, level))
 	}
-
-	stdout := zapcore.AddSync(os.Stdout)
-	file := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   output,
-		MaxSize:    defaultLoggerMaxSizeMb,
-		MaxBackups: defaultLoggerMaxBackupsCount,
-		MaxAge:     defaultLoggerMaxAgeDays,
-	})
-
-	productionCfg := zap.NewProductionEncoderConfig()
-	productionCfg.TimeKey = "timestamp"
-	productionCfg.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	developmentCfg := zap.NewDevelopmentEncoderConfig()
 	developmentCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
-
 	consoleEncoder := zapcore.NewConsoleEncoder(developmentCfg)
-	fileEncoder := zapcore.NewJSONEncoder(productionCfg)
+	tee = append(tee, zapcore.NewCore(
+		consoleEncoder, zapcore.AddSync(os.Stdout), level))
 
-	return zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, stdout, level),
-		zapcore.NewCore(fileEncoder, file, level),
-	)
+	return zapcore.NewTee(tee...)
 }

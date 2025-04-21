@@ -22,6 +22,7 @@ var (
 	ErrAuthenticationFailed   = errors.New("authentication failed")
 	ErrAuthenticationRequired = errors.New("authentication required")
 	ErrInvalidResponseFormat  = errors.New("invalid response format")
+	ErrKeyNotFound            = errors.New("key not found")
 )
 
 type (
@@ -305,7 +306,7 @@ func (k *Client) Get(ctx context.Context, key string, opts ...Option) (string, e
 	responsePayload, err := k.sendRetry(ctx, query)
 	if err != nil {
 		if strings.Contains(err.Error(), compute.ErrKeyNotFound.Error()) {
-			return "", compute.ErrKeyNotFound
+			return "", ErrKeyNotFound
 		}
 
 		return "", fmt.Errorf("failed to get key '%s': %w", key, err)
